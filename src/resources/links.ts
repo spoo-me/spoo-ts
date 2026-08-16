@@ -19,9 +19,15 @@ export interface CreatedLink extends Omit<Schemas["UrlResponse"], "created_at"> 
 }
 
 export interface CreateLinkParams
-  extends Omit<Schemas["CreateUrlRequest"], "expire_after"> {
+  extends Omit<Schemas["CreateUrlRequest"], "expire_after" | "alias_type"> {
   /** Expiry as Date, ISO 8601 string, or unix epoch seconds. */
   expire_after?: TimestampInput | null;
+  /**
+   * Optional here even though codegen marks it required: the API defaults it
+   * to "alphanumeric" (openapi-typescript treats defaulted fields as
+   * non-optional).
+   */
+  alias_type?: Schemas["CreateUrlRequest"]["alias_type"];
 }
 
 export interface UpdateLinkParams

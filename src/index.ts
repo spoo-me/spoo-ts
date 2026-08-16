@@ -34,4 +34,20 @@ export {
   type ClaimItem,
   type BulkResult,
 } from "./resources/links.js";
+export {
+  Stats,
+  type StatsParams,
+  type StatsResponse,
+  type StatsDataPoint,
+  type StatsExport,
+  type StatsExportFormat,
+} from "./resources/stats.js";
+export {
+  PublicLinks,
+  type PublicStatsOptions,
+  type PublicStatsResponse,
+  type PublicPreviewResponse,
+} from "./resources/public.js";
+export { Emoji, type EmojiSet, type EmojiEntry } from "./resources/emoji.js";
+export { Misc, type HealthStatus } from "./resources/misc.js";
 export type { components as ApiSchema } from "./generated/schema.js";

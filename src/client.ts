@@ -1,5 +1,9 @@
 import { Transport, type Fetch, type Logger, type RequestHooks } from "./core/http.js";
 import { Links } from "./resources/links.js";
+import { Stats } from "./resources/stats.js";
+import { PublicLinks } from "./resources/public.js";
+import { Emoji } from "./resources/emoji.js";
+import { Misc } from "./resources/misc.js";
 
 export interface SpooOptions {
   /**
@@ -32,6 +36,11 @@ export interface SpooOptions {
 
 export class Spoo {
   readonly links: Links;
+  readonly stats: Stats;
+  /** Public, unauthenticated per-link endpoints (stats page, preview). */
+  readonly public: PublicLinks;
+  readonly emoji: Emoji;
+  readonly misc: Misc;
 
   /** @internal Transport shared by every resource namespace. */
   readonly _transport: Transport;
@@ -59,6 +68,10 @@ export class Spoo {
     });
 
     this.links = new Links(this._transport);
+    this.stats = new Stats(this._transport);
+    this.public = new PublicLinks(this._transport);
+    this.emoji = new Emoji(this._transport);
+    this.misc = new Misc(this._transport);
   }
 }
 
