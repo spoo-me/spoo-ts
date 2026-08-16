@@ -35,8 +35,8 @@ test("serializes every param group onto the wire shape", async () => {
     }),
   );
   const stats = await client().stats.get({
-    scope: "all",
-    shortCode: "mylink",
+    shortCode: ["mylink", "otherlink"],
+    urlId: ["0".repeat(24)],
     startDate: new Date("2026-01-01T00:00:00Z"),
     endDate: 1767225599,
     groupBy: ["time", "browser"],
@@ -49,8 +49,8 @@ test("serializes every param group onto the wire shape", async () => {
   });
   expect(url).toBeDefined();
   const q = url!.searchParams;
-  expect(q.get("scope")).toBe("all");
-  expect(q.get("short_code")).toBe("mylink");
+  expect(q.get("short_code")).toBe("mylink,otherlink");
+  expect(q.get("url_id")).toBe("0".repeat(24));
   expect(q.get("start_date")).toBe("2026-01-01T00:00:00.000Z");
   expect(q.get("end_date")).toBe("1767225599");
   expect(q.get("group_by")).toBe("time,browser");
@@ -75,8 +75,24 @@ test("omits every optional param that was not given", async () => {
       return HttpResponse.json(STATS_BODY);
     }),
   );
-  await client().stats.get({ scope: "anon", shortCode: "mylink" });
-  expect([...url!.searchParams.keys()].sort()).toEqual(["scope", "short_code"]);
+  await client().stats.get({ shortCode: ["mylink"] });
+  expect([...url!.searchParams.keys()]).toEqual(["short_code"]);
+});
+
+test("getForLink hits the per-link path with shared params", async () => {
+  let url: URL | undefined;
+  const urlId = "0".repeat(24);
+  server.use(
+    http.get(`${BASE}/api/v1/stats/links/:id`, ({ request }) => {
+      url = new URL(request.url);
+      return HttpResponse.json({ ...STATS_BODY, url_id: urlId, alias: "demo" });
+    }),
+  );
+  const stats = await client().stats.getForLink(urlId, { groupBy: ["device"] });
+  expect(url!.pathname).toBe(`/api/v1/stats/links/${urlId}`);
+  expect(url!.searchParams.get("group_by")).toBe("device");
+  expect(stats.alias).toBe("demo");
+  expect(stats.url_id).toBe(urlId);
 });
 
 test("export returns a Blob and the Content-Disposition filename", async () => {
@@ -92,10 +108,7 @@ test("export returns a Blob and the Content-Disposition filename", async () => {
       });
     }),
   );
-  const result = await client().stats.export(
-    { scope: "all", groupBy: ["browser"] },
-    "csv",
-  );
+  const result = await client().stats.export({ groupBy: ["browser"] }, "csv");
   expect(url!.searchParams.get("format")).toBe("csv");
   expect(url!.searchParams.get("group_by")).toBe("browser");
   expect(result.data).toBeInstanceOf(Blob);
@@ -113,7 +126,7 @@ test("export parses an RFC 5987 encoded filename", async () => {
       }),
     ),
   );
-  const result = await client().stats.export({ scope: "all" }, "json");
+  const result = await client().stats.export({}, "json");
   expect(result.filename).toBe("stats 📈.json");
 });
 
@@ -121,7 +134,7 @@ test("export omits filename when the header is absent", async () => {
   server.use(
     http.get(`${BASE}/api/v1/export`, () => new HttpResponse(new Uint8Array([1]).buffer)),
   );
-  const result = await client().stats.export({ scope: "all" }, "xlsx");
+  const result = await client().stats.export({}, "xlsx");
   expect(result.filename).toBeUndefined();
   expect("filename" in result).toBe(false);
 });

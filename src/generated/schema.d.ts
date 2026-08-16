@@ -1144,35 +1144,77 @@ export interface paths {
         };
         /**
          * URL Statistics
-         * @description Get click statistics for URLs.
+         * @description Get aggregated click statistics across all URLs you own.
          *
-         *     Retrieve aggregated click analytics with flexible grouping, filtering,
-         *     and time-range options.
+         *     Retrieve click analytics with flexible grouping, filtering, and
+         *     time-range options.
          *
-         *     **Authentication**: Optional for `scope=anon` (public stats on a single URL);
-         *     required for `scope=all` (all URLs owned by the user).
+         *     **Authentication**: Required.
          *
          *     **API Key Scope**: `stats:read`, `urls:read`, or `admin:all`
          *
-         *     **Rate Limits**:
+         *     **Rate Limits**: 60/min, 5,000/day
          *
-         *     - Authenticated: 60/min, 5,000/day
-         *     - Anonymous: 20/min, 1,000/day
-         *
-         *     **Scopes**:
-         *
-         *     - `scope=anon` + `short_code=<alias>` — public stats for one URL (if stats are not private)
-         *     - `scope=all` — aggregate stats across all URLs owned by the authenticated user
-         *
-         *     **Grouping Dimensions**: `time`, `browser`, `os`, `country`, `city`,
-         *     `referrer`, `short_code`
+         *     **Grouping Dimensions**: `time`, `browser`, `os`, `device`, `country`,
+         *     `city`, `referrer`, `short_code`, `utm_source`, `utm_medium`,
+         *     `utm_campaign`
          *
          *     **Metrics**: `clicks`, `unique_clicks`
          *
-         *     **Filtering**: Filter by `browser`, `os`, `country`, `city`, `referrer`,
-         *     or `short_code` using query params or a JSON `filters` object.
+         *     **Filtering**: Filter by `browser`, `os`, `device`, `country`, `city`,
+         *     `referrer`, `short_code`, `url_id`, or the `utm_*` tags using query
+         *     params or a JSON `filters` object. Filters slice your own aggregate —
+         *     `url_id` values you do not own simply match nothing. For statistics on
+         *     a single link, prefer `GET /stats/links/{url_id}`.
          */
         get: operations["getStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stats/links/{url_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Link Statistics
+         * @description Get click statistics for a single URL you own.
+         *
+         *     The same aggregated analytics as `GET /stats`, pre-scoped to one link —
+         *     the response additionally echoes the link's `url_id` and `alias`.
+         *     Custom-domain links are safe here: clicks are matched by URL id, so a
+         *     same-alias link on another domain can never bleed in.
+         *
+         *     **Authentication**: Required — you must own the URL.
+         *
+         *     **API Key Scope**: `stats:read`, `urls:read`, or `admin:all`
+         *
+         *     **Rate Limits**: 60/min, 5,000/day
+         *
+         *     **Grouping Dimensions**: `time`, `browser`, `os`, `device`, `country`,
+         *     `city`, `referrer`, `utm_source`, `utm_medium`, `utm_campaign`
+         *
+         *     **Metrics**: `clicks`, `unique_clicks`
+         *
+         *     **Filtering**: Filter by `browser`, `os`, `device`, `country`, `city`,
+         *     `referrer`, or the `utm_*` tags using query params or a JSON `filters`
+         *     object. Link-identity filters (`short_code`, `url_id`) do not exist
+         *     here — the path already selects the link.
+         *
+         *     **Errors**:
+         *
+         *     - `400` — malformed id (not a valid ObjectId)
+         *     - `404` — no URL with that id in your account. A URL owned by someone
+         *       else answers identically; this endpoint never confirms foreign ids.
+         */
+        get: operations["getLinkStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1234,20 +1276,16 @@ export interface paths {
         };
         /**
          * Export Statistics
-         * @description Export URL click statistics as a downloadable file.
+         * @description Export click statistics across all URLs you own as a downloadable file.
          *
          *     Generate a file export of click analytics data in the specified format.
          *     The response is a binary download with appropriate `Content-Disposition` header.
          *
-         *     **Authentication**: Optional for `scope=anon` (public stats on a single URL);
-         *     required for `scope=all`.
+         *     **Authentication**: Required.
          *
          *     **API Key Scope**: `stats:read`, `urls:read`, or `admin:all`
          *
-         *     **Rate Limits**:
-         *
-         *     - Authenticated: 30/min, 1,000/day
-         *     - Anonymous: 10/min, 200/day
+         *     **Rate Limits**: 30/min, 1,000/day
          *
          *     **Export Formats**:
          *
@@ -1256,10 +1294,60 @@ export interface paths {
          *     - `xlsx` — Excel spreadsheet with multiple sheets
          *     - `csv` — **ZIP archive** containing `summary.csv` plus one CSV file per metrics dimension
          *
+         *     **Filtering**: Same as `GET /stats` — including the `url_id` filter to
+         *     slice the export to specific URLs you own. To export a single link,
+         *     prefer `GET /export/links/{url_id}`.
+         *
          *     **Note**: Export generation is resource-intensive. Lower rate limits apply
          *     compared to other endpoints.
          */
         get: operations["exportStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/export/links/{url_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Link Statistics
+         * @description Export click statistics for a single URL you own.
+         *
+         *     The export twin of `GET /stats/links/{url_id}` — the same formats as
+         *     `GET /export`, pre-scoped to one link. The suggested filename carries
+         *     the link's alias.
+         *
+         *     **Authentication**: Required — you must own the URL.
+         *
+         *     **API Key Scope**: `stats:read`, `urls:read`, or `admin:all`
+         *
+         *     **Rate Limits**: 30/min, 1,000/day
+         *
+         *     **Export Formats**:
+         *
+         *     - `json` — single JSON file
+         *     - `xml` — single XML file
+         *     - `xlsx` — Excel spreadsheet with multiple sheets
+         *     - `csv` — **ZIP archive** containing `summary.csv` plus one CSV file per metrics dimension
+         *
+         *     **Errors**:
+         *
+         *     - `400` — malformed id (not a valid ObjectId)
+         *     - `404` — no URL with that id in your account. A URL owned by someone
+         *       else answers identically; this endpoint never confirms foreign ids.
+         *
+         *     **Note**: Export generation is resource-intensive. Lower rate limits apply
+         *     compared to other endpoints.
+         */
+        get: operations["exportLinkStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3146,6 +3234,47 @@ export interface components {
             } | null;
         };
         /**
+         * LinkStatsResponse
+         * @description Response body for GET /api/v1/stats/links/{url_id}.
+         *
+         *     The standard stats wire plus the identity of the selected link.
+         *     ``scope`` stays ``all`` — the link is part of the owner's aggregate.
+         */
+        LinkStatsResponse: {
+            scope: components["schemas"]["StatsScope"];
+            /** Filters */
+            filters: {
+                [key: string]: string[];
+            };
+            /** Group By */
+            group_by: string[];
+            /** Timezone */
+            timezone: string;
+            time_range: components["schemas"]["StatsTimeRange"];
+            summary: components["schemas"]["StatsSummary"];
+            /**
+             * Metrics
+             * @description Keyed by '{metric}_by_{dimension}' (e.g. 'clicks_by_browser', 'unique_clicks_by_time'). Each value is a list of data-point objects whose keys are the dimension name, the metric name, and '{metric}_percentage'.
+             */
+            metrics?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
+            /** Generated At */
+            generated_at?: string | null;
+            /** Api Version */
+            api_version?: string | null;
+            /** Short Code */
+            short_code?: string | null;
+            time_bucket_info?: components["schemas"]["TimeBucketInfo"] | null;
+            computed_metrics?: components["schemas"]["ComputedMetrics"] | null;
+            /** Url Id */
+            url_id: string;
+            /** Alias */
+            alias: string;
+        };
+        /**
          * LoginRequest
          * @description Request body for POST /auth/login.
          */
@@ -3846,7 +3975,11 @@ export interface components {
         };
         /**
          * StatsScope
-         * @description Stats query scope.
+         * @description Stats wire scope.
+         *
+         *     Response-only: the ``scope`` request parameter no longer exists (auth
+         *     is mandatory), but the response wire keeps its ``scope`` key and the
+         *     public stats endpoint's frozen contract still carries ``anon``.
          * @enum {string}
          */
         StatsScope: "all" | "anon";
@@ -7282,16 +7415,7 @@ export interface operations {
     getStats: {
         parameters: {
             query?: {
-                /**
-                 * @description Statistics scope: `all` (authenticated only) or `anon` (public access).
-                 *
-                 *     - `all` — aggregate stats across all URLs owned by the authenticated user. Requires authentication.
-                 *     - `anon` — public stats for a single URL. Requires `short_code` parameter. No authentication needed (unless stats are private).
-                 */
-                scope?: "all" | "anon";
-                /** @description URL alias to query stats for. **Required** when `scope=anon`. When `scope=all`, this is optional and filters stats to a specific URL. */
-                short_code?: string | null;
-                /** @description Start of time range. Accepts ISO 8601 datetime string (e.g., `2025-01-01T00:00:00Z`) or Unix timestamp in seconds (e.g., `1735689600`). If omitted, defaults to the URL creation date. */
+                /** @description Start of time range. Accepts ISO 8601 datetime string (e.g., `2025-01-01T00:00:00Z`) or Unix timestamp in seconds (e.g., `1735689600`). If omitted, defaults to 7 days before `end_date`. */
                 start_date?: string | null;
                 /** @description End of time range. Accepts ISO 8601 datetime string (e.g., `2025-12-31T23:59:59Z`) or Unix timestamp in seconds (e.g., `1767225599`). If omitted, defaults to now. */
                 end_date?: string | null;
@@ -7307,7 +7431,7 @@ export interface operations {
                  *     - `country` — group by country
                  *     - `city` — group by city
                  *     - `referrer` — group by referrer URL
-                 *     - `short_code` — group by URL alias (only with `scope=all`)
+                 *     - `short_code` — group by URL alias
                  *     - `utm_source` — group by the `utm_source` tag on the short link (untagged clicks appear as `(none)`)
                  *     - `utm_medium` — group by the `utm_medium` tag
                  *     - `utm_campaign` — group by the `utm_campaign` tag
@@ -7339,7 +7463,8 @@ export interface operations {
                  *     - `country` — Filter by country name (e.g., United States, Canada, Germany)
                  *     - `city` — Filter by city name (e.g., New York, London, Mumbai)
                  *     - `referrer` — Filter by referrer URL (e.g., https://google.com, https://twitter.com)
-                 *     - `short_code` — Filter by URL alias (e.g., mylink, promo2024) — **not allowed** with `scope=anon`
+                 *     - `short_code` — Filter by URL alias (e.g., mylink, promo2024)
+                 *     - `url_id` — Filter by URL id (MongoDB ObjectId); ids you do not own match nothing
                  *     - `utm_source` / `utm_medium` / `utm_campaign` — Filter by campaign tags; `(none)` matches untagged clicks
                  *
                  *     **Value format:** Array of strings for each dimension.
@@ -7350,7 +7475,245 @@ export interface operations {
                  *
                  *     - `{"browser": ["Chrome", "Firefox"]}` — Chrome OR Firefox clicks
                  *     - `{"country": ["United States", "Canada"], "browser": ["Chrome"]}` — US/CA clicks from Chrome
-                 *     - `{"short_code": ["link1", "link2"]}` — Stats for specific URLs (`scope=all` only)
+                 *     - `{"short_code": ["link1", "link2"]}` — Stats for specific URLs
+                 *
+                 *     **Alternative:** You can also pass filters as individual query parameters (see `browser`, `os`, `country`, `city`, `referrer` parameters below).
+                 */
+                filters?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated browser names. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Common values include: Chrome, Firefox, Safari, Edge, Opera, Samsung Internet.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                browser?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated operating system names. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Common values include: Windows, macOS, Linux, iOS, Android, Chrome OS.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                os?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated device types. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Values:** `mobile`, `tablet`, `desktop`, `unknown`. `unknown` also matches clicks recorded before device tracking existed.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                device?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated country names. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Use full country names as stored in the database (e.g., United States, Canada, United Kingdom, India, Germany, France, Japan).
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                country?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated city names. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Use exact capitalization as stored in the database.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                city?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated referrer URLs. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Include the full URL including protocol.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                referrer?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated campaign tag values. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. `(none)` matches clicks with no tag.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                utm_source?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated campaign tag values. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. `(none)` matches clicks with no tag.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                utm_medium?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated campaign tag values. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. `(none)` matches clicks with no tag.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                utm_campaign?: string | null;
+                /**
+                 * @description Comma-separated URL aliases to filter stats to specific URLs you own. Slices your own aggregate — aliases you do not own simply match nothing.
+                 *
+                 *     For statistics on a single link, prefer `GET /api/v1/stats/links/{url_id}`.
+                 */
+                short_code?: string | null;
+                /**
+                 * @description Comma-separated URL ids (MongoDB ObjectIds) to filter stats to specific URLs you own. Slices your own aggregate — ids you do not own simply match nothing.
+                 *
+                 *     For statistics on a single link, prefer `GET /api/v1/stats/links/{url_id}`.
+                 */
+                url_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getLinkStats: {
+        parameters: {
+            query?: {
+                /** @description Start of time range. Accepts ISO 8601 datetime string (e.g., `2025-01-01T00:00:00Z`) or Unix timestamp in seconds (e.g., `1735689600`). If omitted, defaults to 7 days before `end_date`. */
+                start_date?: string | null;
+                /** @description End of time range. Accepts ISO 8601 datetime string (e.g., `2025-12-31T23:59:59Z`) or Unix timestamp in seconds (e.g., `1767225599`). If omitted, defaults to now. */
+                end_date?: string | null;
+                /**
+                 * @description Comma-separated grouping dimensions for the statistics breakdown. Defaults to `time` if omitted.
+                 *
+                 *     **Available dimensions:**
+                 *
+                 *     - `time` — group by time buckets (day/week/month, auto-selected based on range)
+                 *     - `browser` — group by browser name (e.g., Chrome, Firefox, Safari)
+                 *     - `os` — group by operating system (e.g., Windows, macOS, Linux)
+                 *     - `device` — group by device type (`mobile`, `tablet`, `desktop`, `unknown`)
+                 *     - `country` — group by country
+                 *     - `city` — group by city
+                 *     - `referrer` — group by referrer URL
+                 *     - `utm_source` — group by the `utm_source` tag on the short link (untagged clicks appear as `(none)`)
+                 *     - `utm_medium` — group by the `utm_medium` tag
+                 *     - `utm_campaign` — group by the `utm_campaign` tag
+                 *
+                 *     Multiple dimensions can be combined: `time,browser` returns time series broken down by browser.
+                 */
+                group_by?: string | null;
+                /**
+                 * @description Comma-separated metrics to include. Defaults to `clicks,unique_clicks` if omitted.
+                 *
+                 *     **Available metrics:**
+                 *
+                 *     - `clicks` — total click count
+                 *     - `unique_clicks` — unique visitor count (deduplicated by IP + User-Agent)
+                 */
+                metrics?: string | null;
+                /** @description IANA timezone name for time-based grouping and output formatting (e.g., `UTC`, `America/New_York`, `Asia/Kolkata`). Defaults to `UTC`. */
+                timezone?: string;
+                /**
+                 * @description **Method 1: JSON Filters Object**
+                 *
+                 *     JSON string containing dimension filters. Format: `{"dimension": ["value1", "value2"]}`
+                 *
+                 *     **Available filter dimensions:**
+                 *
+                 *     - `browser` — Filter by browser name (e.g., Chrome, Firefox, Safari, Edge)
+                 *     - `os` — Filter by operating system (e.g., Windows, macOS, Linux, iOS, Android)
+                 *     - `device` — Filter by device type (`mobile`, `tablet`, `desktop`, `unknown`)
+                 *     - `country` — Filter by country name (e.g., United States, Canada, Germany)
+                 *     - `city` — Filter by city name (e.g., New York, London, Mumbai)
+                 *     - `referrer` — Filter by referrer URL (e.g., https://google.com, https://twitter.com)
+                 *     - `utm_source` / `utm_medium` / `utm_campaign` — Filter by campaign tags; `(none)` matches untagged clicks
+                 *
+                 *     **Value format:** Array of strings for each dimension.
+                 *
+                 *     **Important:** Filter values are case-sensitive. Use exact capitalization as stored in the database.
+                 *
+                 *     **Examples:**
+                 *
+                 *     - `{"browser": ["Chrome", "Firefox"]}` — Chrome OR Firefox clicks
+                 *     - `{"country": ["United States", "Canada"], "browser": ["Chrome"]}` — US/CA clicks from Chrome
                  *
                  *     **Alternative:** You can also pass filters as individual query parameters (see `browser`, `os`, `country`, `city`, `referrer` parameters below).
                  */
@@ -7447,7 +7810,10 @@ export interface operations {
                 utm_campaign?: string | null;
             };
             header?: never;
-            path?: never;
+            path: {
+                /** @description Unique identifier of the URL (MongoDB ObjectId). */
+                url_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -7458,7 +7824,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StatsResponse"];
+                    "application/json": components["schemas"]["LinkStatsResponse"];
                 };
             };
             /** @description Bad Request — invalid parameters */
@@ -7690,16 +8056,9 @@ export interface operations {
     exportStats: {
         parameters: {
             query: {
-                /**
-                 * @description Statistics scope: `all` (authenticated only) or `anon` (public access).
-                 *
-                 *     - `all` — aggregate stats across all URLs owned by the authenticated user. Requires authentication.
-                 *     - `anon` — public stats for a single URL. Requires `short_code` parameter. No authentication needed (unless stats are private).
-                 */
-                scope?: "all" | "anon";
-                /** @description URL alias to query stats for. **Required** when `scope=anon`. When `scope=all`, this is optional and filters stats to a specific URL. */
-                short_code?: string | null;
-                /** @description Start of time range. Accepts ISO 8601 datetime string (e.g., `2025-01-01T00:00:00Z`) or Unix timestamp in seconds (e.g., `1735689600`). If omitted, defaults to the URL creation date. */
+                /** @description Export file format. */
+                format: "csv" | "xlsx" | "json" | "xml";
+                /** @description Start of time range. Accepts ISO 8601 datetime string (e.g., `2025-01-01T00:00:00Z`) or Unix timestamp in seconds (e.g., `1735689600`). If omitted, defaults to 7 days before `end_date`. */
                 start_date?: string | null;
                 /** @description End of time range. Accepts ISO 8601 datetime string (e.g., `2025-12-31T23:59:59Z`) or Unix timestamp in seconds (e.g., `1767225599`). If omitted, defaults to now. */
                 end_date?: string | null;
@@ -7715,7 +8074,7 @@ export interface operations {
                  *     - `country` — group by country
                  *     - `city` — group by city
                  *     - `referrer` — group by referrer URL
-                 *     - `short_code` — group by URL alias (only with `scope=all`)
+                 *     - `short_code` — group by URL alias
                  *     - `utm_source` — group by the `utm_source` tag on the short link (untagged clicks appear as `(none)`)
                  *     - `utm_medium` — group by the `utm_medium` tag
                  *     - `utm_campaign` — group by the `utm_campaign` tag
@@ -7747,7 +8106,8 @@ export interface operations {
                  *     - `country` — Filter by country name (e.g., United States, Canada, Germany)
                  *     - `city` — Filter by city name (e.g., New York, London, Mumbai)
                  *     - `referrer` — Filter by referrer URL (e.g., https://google.com, https://twitter.com)
-                 *     - `short_code` — Filter by URL alias (e.g., mylink, promo2024) — **not allowed** with `scope=anon`
+                 *     - `short_code` — Filter by URL alias (e.g., mylink, promo2024)
+                 *     - `url_id` — Filter by URL id (MongoDB ObjectId); ids you do not own match nothing
                  *     - `utm_source` / `utm_medium` / `utm_campaign` — Filter by campaign tags; `(none)` matches untagged clicks
                  *
                  *     **Value format:** Array of strings for each dimension.
@@ -7758,7 +8118,7 @@ export interface operations {
                  *
                  *     - `{"browser": ["Chrome", "Firefox"]}` — Chrome OR Firefox clicks
                  *     - `{"country": ["United States", "Canada"], "browser": ["Chrome"]}` — US/CA clicks from Chrome
-                 *     - `{"short_code": ["link1", "link2"]}` — Stats for specific URLs (`scope=all` only)
+                 *     - `{"short_code": ["link1", "link2"]}` — Stats for specific URLs
                  *
                  *     **Alternative:** You can also pass filters as individual query parameters (see `browser`, `os`, `country`, `city`, `referrer` parameters below).
                  */
@@ -7853,11 +8213,264 @@ export interface operations {
                  *     **Note:** Both `filters` JSON and individual parameters can be combined.
                  */
                 utm_campaign?: string | null;
-                /** @description Export file format. */
-                format: "csv" | "xlsx" | "json" | "xml";
+                /**
+                 * @description Comma-separated URL aliases to filter stats to specific URLs you own. Slices your own aggregate — aliases you do not own simply match nothing.
+                 *
+                 *     For statistics on a single link, prefer `GET /api/v1/stats/links/{url_id}`.
+                 */
+                short_code?: string | null;
+                /**
+                 * @description Comma-separated URL ids (MongoDB ObjectIds) to filter stats to specific URLs you own. Slices your own aggregate — ids you do not own simply match nothing.
+                 *
+                 *     For statistics on a single link, prefer `GET /api/v1/stats/links/{url_id}`.
+                 */
+                url_id?: string | null;
             };
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Export file download */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                    "application/xml": string;
+                    "application/zip": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error — export generation failed */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    exportLinkStats: {
+        parameters: {
+            query: {
+                /** @description Export file format. */
+                format: "csv" | "xlsx" | "json" | "xml";
+                /** @description Start of time range. Accepts ISO 8601 datetime string (e.g., `2025-01-01T00:00:00Z`) or Unix timestamp in seconds (e.g., `1735689600`). If omitted, defaults to 7 days before `end_date`. */
+                start_date?: string | null;
+                /** @description End of time range. Accepts ISO 8601 datetime string (e.g., `2025-12-31T23:59:59Z`) or Unix timestamp in seconds (e.g., `1767225599`). If omitted, defaults to now. */
+                end_date?: string | null;
+                /**
+                 * @description Comma-separated grouping dimensions for the statistics breakdown. Defaults to `time` if omitted.
+                 *
+                 *     **Available dimensions:**
+                 *
+                 *     - `time` — group by time buckets (day/week/month, auto-selected based on range)
+                 *     - `browser` — group by browser name (e.g., Chrome, Firefox, Safari)
+                 *     - `os` — group by operating system (e.g., Windows, macOS, Linux)
+                 *     - `device` — group by device type (`mobile`, `tablet`, `desktop`, `unknown`)
+                 *     - `country` — group by country
+                 *     - `city` — group by city
+                 *     - `referrer` — group by referrer URL
+                 *     - `utm_source` — group by the `utm_source` tag on the short link (untagged clicks appear as `(none)`)
+                 *     - `utm_medium` — group by the `utm_medium` tag
+                 *     - `utm_campaign` — group by the `utm_campaign` tag
+                 *
+                 *     Multiple dimensions can be combined: `time,browser` returns time series broken down by browser.
+                 */
+                group_by?: string | null;
+                /**
+                 * @description Comma-separated metrics to include. Defaults to `clicks,unique_clicks` if omitted.
+                 *
+                 *     **Available metrics:**
+                 *
+                 *     - `clicks` — total click count
+                 *     - `unique_clicks` — unique visitor count (deduplicated by IP + User-Agent)
+                 */
+                metrics?: string | null;
+                /** @description IANA timezone name for time-based grouping and output formatting (e.g., `UTC`, `America/New_York`, `Asia/Kolkata`). Defaults to `UTC`. */
+                timezone?: string;
+                /**
+                 * @description **Method 1: JSON Filters Object**
+                 *
+                 *     JSON string containing dimension filters. Format: `{"dimension": ["value1", "value2"]}`
+                 *
+                 *     **Available filter dimensions:**
+                 *
+                 *     - `browser` — Filter by browser name (e.g., Chrome, Firefox, Safari, Edge)
+                 *     - `os` — Filter by operating system (e.g., Windows, macOS, Linux, iOS, Android)
+                 *     - `device` — Filter by device type (`mobile`, `tablet`, `desktop`, `unknown`)
+                 *     - `country` — Filter by country name (e.g., United States, Canada, Germany)
+                 *     - `city` — Filter by city name (e.g., New York, London, Mumbai)
+                 *     - `referrer` — Filter by referrer URL (e.g., https://google.com, https://twitter.com)
+                 *     - `utm_source` / `utm_medium` / `utm_campaign` — Filter by campaign tags; `(none)` matches untagged clicks
+                 *
+                 *     **Value format:** Array of strings for each dimension.
+                 *
+                 *     **Important:** Filter values are case-sensitive. Use exact capitalization as stored in the database.
+                 *
+                 *     **Examples:**
+                 *
+                 *     - `{"browser": ["Chrome", "Firefox"]}` — Chrome OR Firefox clicks
+                 *     - `{"country": ["United States", "Canada"], "browser": ["Chrome"]}` — US/CA clicks from Chrome
+                 *
+                 *     **Alternative:** You can also pass filters as individual query parameters (see `browser`, `os`, `country`, `city`, `referrer` parameters below).
+                 */
+                filters?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated browser names. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Common values include: Chrome, Firefox, Safari, Edge, Opera, Samsung Internet.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                browser?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated operating system names. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Common values include: Windows, macOS, Linux, iOS, Android, Chrome OS.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                os?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated device types. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Values:** `mobile`, `tablet`, `desktop`, `unknown`. `unknown` also matches clicks recorded before device tracking existed.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                device?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated country names. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Use full country names as stored in the database (e.g., United States, Canada, United Kingdom, India, Germany, France, Japan).
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                country?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated city names. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Use exact capitalization as stored in the database.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                city?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated referrer URLs. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. Include the full URL including protocol.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                referrer?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated campaign tag values. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. `(none)` matches clicks with no tag.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                utm_source?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated campaign tag values. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. `(none)` matches clicks with no tag.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                utm_medium?: string | null;
+                /**
+                 * @description **Method 2: Individual Filter Parameter**
+                 *
+                 *     Comma-separated campaign tag values. Alternative to using the `filters` JSON parameter.
+                 *
+                 *     **Important:** Values are case-sensitive. `(none)` matches clicks with no tag.
+                 *
+                 *     **Note:** Both `filters` JSON and individual parameters can be combined.
+                 */
+                utm_campaign?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Unique identifier of the URL (MongoDB ObjectId). */
+                url_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

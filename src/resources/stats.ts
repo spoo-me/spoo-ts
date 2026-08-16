@@ -21,6 +21,12 @@ export interface StatsResponse extends Omit<Schemas["StatsResponse"], "metrics">
   metrics?: Record<string, StatsDataPoint[]>;
 }
 
+/** Per-link stats: the aggregate payload plus the link's identity. */
+export interface LinkStatsResponse
+  extends Omit<Schemas["LinkStatsResponse"], "metrics"> {
+  metrics?: Record<string, StatsDataPoint[]>;
+}
+
 export type StatsExportFormat = "csv" | "xlsx" | "json" | "xml";
 
 /** A generated export file. `csv` format is a ZIP archive, not a bare CSV. */
@@ -30,23 +36,19 @@ export interface StatsExport {
   filename?: string;
 }
 
+/**
+ * Window, breakdown and filter parameters shared by every stats call.
+ * All stats endpoints are authenticated; unauthenticated per-link stats
+ * live under `spoo.public`.
+ */
 export interface StatsParams {
-  /**
-   * `all` aggregates across every URL you own and requires authentication;
-   * `anon` reads public stats for one URL (requires `shortCode`, no auth
-   * unless the link's stats are private).
-   */
-  scope: "all" | "anon";
-  /** Required with `scope: "anon"`; optional single-URL filter with `scope: "all"`. */
-  shortCode?: string;
   /** Defaults to the URL creation date. */
   startDate?: TimestampInput;
-  /** Defaults to now. */
+  /** Defaults to now. Window may span at most 90 days. */
   endDate?: TimestampInput;
   /**
    * Breakdown dimensions: time, browser, os, device, country, city, referrer,
-   * short_code (scope=all only), utm_source, utm_medium, utm_campaign.
-   * Defaults to `["time"]`.
+   * short_code, utm_source, utm_medium, utm_campaign. Defaults to `["time"]`.
    */
   groupBy?: string[];
   /** Defaults to both. */
@@ -55,8 +57,8 @@ export interface StatsParams {
   timezone?: string;
   /**
    * Dimension filters, `{dimension: [values]}`. Values are case-sensitive and
-   * must match the stored capitalization exactly. `short_code` is not allowed
-   * with `scope: "anon"`. Combinable with the per-dimension shortcuts below.
+   * must match the stored capitalization exactly. Combinable with the
+   * per-dimension shortcuts below.
    */
   filters?: Record<string, string[]>;
   /** Case-sensitive, e.g. "Chrome", "Firefox". */
@@ -76,12 +78,18 @@ export interface StatsParams {
   utm_campaign?: string[];
 }
 
+/** Aggregate-only filters: slice your account-wide stats to specific links. */
+export interface AggregateStatsParams extends StatsParams {
+  /** Aliases to slice to. Aliases you do not own simply match nothing. */
+  shortCode?: string[];
+  /** Link ids to slice to. Ids you do not own simply match nothing. */
+  urlId?: string[];
+}
+
 function buildStatsQuery(
-  params: StatsParams,
+  params: AggregateStatsParams,
 ): Record<string, string | number | undefined> {
   return {
-    scope: params.scope,
-    short_code: params.shortCode,
     start_date: params.startDate !== undefined ? toWire(params.startDate) : undefined,
     end_date: params.endDate !== undefined ? toWire(params.endDate) : undefined,
     group_by: params.groupBy?.join(","),
@@ -97,6 +105,8 @@ function buildStatsQuery(
     utm_source: params.utm_source?.join(","),
     utm_medium: params.utm_medium?.join(","),
     utm_campaign: params.utm_campaign?.join(","),
+    short_code: params.shortCode?.join(","),
+    url_id: params.urlId?.join(","),
   };
 }
 
@@ -119,13 +129,32 @@ export class Stats {
   constructor(private readonly transport: Transport) {}
 
   /**
-   * Aggregated click analytics. `scope: "all"` needs the `stats:read`,
-   * `urls:read` or `admin:all` key scope. Rate limits: 60/min, 5,000/day
-   * authenticated; 20/min, 1,000/day anonymous.
+   * Click analytics aggregated across every link you own, optionally sliced
+   * with `shortCode`/`urlId`. Needs the `stats:read`, `urls:read` or
+   * `admin:all` scope. Rate limits: 60/min, 5,000/day.
    */
-  async get(params: StatsParams, opts?: RequestOptions): Promise<StatsResponse> {
+  async get(params: AggregateStatsParams = {}, opts?: RequestOptions): Promise<StatsResponse> {
     return this.transport.request(
       { method: "GET", path: "/api/v1/stats", query: buildStatsQuery(params) },
+      opts,
+    );
+  }
+
+  /**
+   * Click analytics for one link you own, addressed by its id. Same window,
+   * breakdown and filter parameters as the aggregate call.
+   */
+  async getForLink(
+    urlId: string,
+    params: StatsParams = {},
+    opts?: RequestOptions,
+  ): Promise<LinkStatsResponse> {
+    return this.transport.request(
+      {
+        method: "GET",
+        path: `/api/v1/stats/links/${encodeURIComponent(urlId)}`,
+        query: buildStatsQuery(params),
+      },
       opts,
     );
   }
@@ -134,10 +163,10 @@ export class Stats {
    * Download the same analytics as a file. The `csv` format is a ZIP archive
    * (summary.csv plus one CSV per dimension), not a bare CSV. Export
    * generation is resource-intensive, so tighter limits apply: 30/min,
-   * 1,000/day authenticated; 10/min, 200/day anonymous.
+   * 1,000/day.
    */
   async export(
-    params: StatsParams,
+    params: AggregateStatsParams,
     format: StatsExportFormat,
     opts?: RequestOptions,
   ): Promise<StatsExport> {

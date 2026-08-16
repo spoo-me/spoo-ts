@@ -37,6 +37,8 @@ export {
 export {
   Stats,
   type StatsParams,
+  type AggregateStatsParams,
+  type LinkStatsResponse,
   type StatsResponse,
   type StatsDataPoint,
   type StatsExport,
