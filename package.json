@@ -1,0 +1,46 @@
+{
+  "name": "spoo.me",
+  "version": "0.0.0",
+  "description": "Official TypeScript SDK for the spoo.me link management API",
+  "keywords": ["spoo.me", "url-shortener", "link-management", "short-links", "api-client"],
+  "homepage": "https://spoo.me",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spoo-me/sdk-ts.git"
+  },
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:types": "openapi-typescript openapi.json -o src/generated/schema.d.ts",
+    "lint:pkg": "npm run build && publint && attw --pack .",
+    "release": "npm run build && changeset publish"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@changesets/cli": "^2.29.0",
+    "msw": "^2.10.0",
+    "openapi-typescript": "^7.8.0",
+    "publint": "^0.3.12",
+    "tsdown": "^0.13.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
