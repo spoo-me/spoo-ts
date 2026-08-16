@@ -13,11 +13,9 @@ import {
   parseRateLimitHeaders,
   type RateLimitInfo,
 } from "./errors.js";
+import { SDK_VERSION } from "../version.js";
 
-declare const __SDK_VERSION__: string;
-
-export const SDK_VERSION: string =
-  typeof __SDK_VERSION__ === "string" ? __SDK_VERSION__ : "0.0.0";
+export { SDK_VERSION };
 
 export type Fetch = typeof fetch;
 

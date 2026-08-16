@@ -2,7 +2,13 @@
   "name": "spoo.me",
   "version": "0.0.0",
   "description": "Official TypeScript SDK for the spoo.me link management API",
-  "keywords": ["spoo.me", "url-shortener", "link-management", "short-links", "api-client"],
+  "keywords": [
+    "spoo.me",
+    "url-shortener",
+    "link-management",
+    "short-links",
+    "api-client"
+  ],
   "homepage": "https://spoo.me",
   "repository": {
     "type": "git",
@@ -22,10 +28,12 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsdown",
+    "build": "node scripts/write-version.mjs && tsdown",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -39,7 +47,7 @@
     "msw": "^2.10.0",
     "openapi-typescript": "^7.8.0",
     "publint": "^0.3.12",
-    "tsdown": "^0.13.0",
+    "tsdown": "^0.22.14",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }
