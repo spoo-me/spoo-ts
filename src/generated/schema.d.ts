@@ -3223,6 +3223,33 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * HealthChecks
+         * @description Individual service check statuses inside HealthResponse.
+         */
+        HealthChecks: {
+            /**
+             * Mongodb
+             * @enum {string}
+             */
+            mongodb: "ok" | "error" | "not_configured";
+            /**
+             * Redis
+             * @enum {string}
+             */
+            redis: "ok" | "error" | "not_configured";
+        };
+        /**
+         * HealthResponse
+         * @description Response body for GET /health.
+         */
+        HealthResponse: {
+            /** Status */
+            status: string;
+            /** Version */
+            version: string;
+            checks: components["schemas"]["HealthChecks"];
+        };
         /** LayoutResponse */
         LayoutResponse: {
             /**
@@ -4691,7 +4718,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            /** @description Unhealthy — MongoDB is unreachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthResponse"];
                 };
             };
         };
