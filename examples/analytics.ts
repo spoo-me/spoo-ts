@@ -1,6 +1,6 @@
 // Click analytics: account-wide, per-link, and file exports.
 import { writeFile } from "node:fs/promises";
-import { Spoo } from "spoo.me";
+import { Spoo, asUrlId } from "spoo.me";
 
 const spoo = new Spoo();
 
@@ -20,8 +20,9 @@ for (const row of stats.metrics?.["clicks_by_time"] ?? []) {
 // Slice the aggregate to specific links you own.
 await spoo.stats.get({ shortCode: ["launch", "🚀🔥"] });
 
-// Or address one link directly by id.
-const one = await spoo.stats.getForLink("665f1e77bcf86cd799439011", {
+// Or address one link directly by id (asUrlId marks a stored plain string
+// as a link id; ids returned by the SDK carry the type already).
+const one = await spoo.stats.getForLink(asUrlId("665f1e77bcf86cd799439011"), {
   groupBy: ["referrer"],
 });
 console.log(one.alias, one.summary.total_clicks);

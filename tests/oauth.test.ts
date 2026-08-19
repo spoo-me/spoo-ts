@@ -1,7 +1,13 @@
 import { afterAll, afterEach, beforeAll, expect, test, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { generatePkcePair, generateState, SessionExpiredError, Spoo } from "../src/index.js";
+import {
+  asUrlId,
+  generatePkcePair,
+  generateState,
+  SessionExpiredError,
+  Spoo,
+} from "../src/index.js";
 import { base64url } from "../src/core/pkce.js";
 
 const BASE = "https://spoo.test";
@@ -189,6 +195,6 @@ test("the provider plugs into Spoo and authenticates requests", async () => {
     tokens: { access_token: access, refresh_token: "r1" },
   });
   const spoo = new Spoo({ baseUrl: BASE, token: provider });
-  await spoo.links.get("0".repeat(24));
+  await spoo.links.get(asUrlId("0".repeat(24)));
   expect(seenAuth).toBe(`Bearer ${access}`);
 });

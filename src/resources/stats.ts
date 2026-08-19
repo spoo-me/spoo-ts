@@ -1,6 +1,7 @@
 import type { components } from "../generated/schema.js";
 import type { Transport, RequestOptions } from "../core/http.js";
 import { toWire, type TimestampInput } from "../core/timestamps.js";
+import type { UrlId } from "../core/ids.js";
 
 type Schemas = components["schemas"];
 
@@ -23,7 +24,8 @@ export interface StatsResponse extends Omit<Schemas["StatsResponse"], "metrics">
 
 /** Per-link stats: the aggregate payload plus the link's identity. */
 export interface LinkStatsResponse
-  extends Omit<Schemas["LinkStatsResponse"], "metrics"> {
+  extends Omit<Schemas["LinkStatsResponse"], "metrics" | "url_id"> {
+  url_id: UrlId;
   metrics?: Record<string, StatsDataPoint[]>;
 }
 
@@ -88,7 +90,7 @@ export interface AggregateStatsParams extends StatsParams {
   /** Aliases to slice to. Aliases you do not own simply match nothing. */
   shortCode?: string[];
   /** Link ids to slice to. Ids you do not own simply match nothing. */
-  urlId?: string[];
+  urlId?: UrlId[];
 }
 
 function buildStatsQuery(
@@ -181,7 +183,7 @@ export class Stats {
    * breakdown and filter parameters as the aggregate call.
    */
   async getForLink(
-    urlId: string,
+    urlId: UrlId,
     params: StatsParams = {},
     opts?: RequestOptions,
   ): Promise<LinkStatsResponse> {
@@ -202,7 +204,7 @@ export class Stats {
    * never collide.
    */
   async exportForLink(
-    urlId: string,
+    urlId: UrlId,
     params: StatsParams,
     format: StatsExportFormat,
     opts?: RequestOptions,

@@ -1,7 +1,13 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { InternalServerError, NotFoundError, RateLimitError, Spoo } from "../src/index.js";
+import {
+  InternalServerError,
+  NotFoundError,
+  RateLimitError,
+  Spoo,
+  asUrlId,
+} from "../src/index.js";
 
 const BASE = "https://spoo.test";
 const server = setupServer();
@@ -24,7 +30,7 @@ test("maps a JSON error body to a typed error with code and request id", async (
     ),
   );
   const err = await client()
-    .links.get("0".repeat(24))
+    .links.get(asUrlId("0".repeat(24)))
     .catch((e: unknown) => e);
   expect(err).toBeInstanceOf(NotFoundError);
   const notFound = err as NotFoundError;
@@ -47,7 +53,7 @@ test("retries a 429 honoring Retry-After, then succeeds", async () => {
       return HttpResponse.json({ id: "0".repeat(24), password_set: false });
     }),
   );
-  const link = await client().links.get("0".repeat(24));
+  const link = await client().links.get(asUrlId("0".repeat(24)));
   expect(calls).toBe(2);
   expect(link.id).toBe("0".repeat(24));
 });
@@ -70,7 +76,7 @@ test("exhausted retries surface RateLimitError with parsed rate-limit state", as
     ),
   );
   const err = await client({ maxRetries: 1 })
-    .links.get("0".repeat(24))
+    .links.get(asUrlId("0".repeat(24)))
     .catch((e: unknown) => e);
   expect(err).toBeInstanceOf(RateLimitError);
   const rateLimited = err as RateLimitError;
@@ -93,7 +99,7 @@ test("non-JSON error bodies never leak into the message", async () => {
     ),
   );
   const err = await client({ maxRetries: 0 })
-    .links.get("0".repeat(24))
+    .links.get(asUrlId("0".repeat(24)))
     .catch((e: unknown) => e);
   const apiErr = err as InternalServerError;
   expect(apiErr.message).toBe("502 http_502: HTTP 502");
@@ -207,7 +213,7 @@ test("claim maps camelCase inputs onto the wire shape", async () => {
       });
     }),
   );
-  await client().links.claim([{ urlId: "0".repeat(24), claimToken: "deed" }]);
+  await client().links.claim([{ urlId: asUrlId("0".repeat(24)), claimToken: "deed" }]);
   expect(body).toEqual({
     claims: [{ url_id: "0".repeat(24), token: "deed" }],
   });

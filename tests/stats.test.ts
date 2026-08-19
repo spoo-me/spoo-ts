@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { Spoo } from "../src/index.js";
+import { Spoo, asUrlId } from "../src/index.js";
 
 const BASE = "https://spoo.test";
 const server = setupServer();
@@ -36,7 +36,7 @@ test("serializes every param group onto the wire shape", async () => {
   );
   const stats = await client().stats.get({
     shortCode: ["mylink", "otherlink"],
-    urlId: ["0".repeat(24)],
+    urlId: [asUrlId("0".repeat(24))],
     startDate: new Date("2026-01-01T00:00:00Z"),
     endDate: 1767225599,
     groupBy: ["time", "browser"],
@@ -81,7 +81,7 @@ test("omits every optional param that was not given", async () => {
 
 test("getForLink hits the per-link path with shared params", async () => {
   let url: URL | undefined;
-  const urlId = "0".repeat(24);
+  const urlId = asUrlId("0".repeat(24));
   server.use(
     http.get(`${BASE}/api/v1/stats/links/:id`, ({ request }) => {
       url = new URL(request.url);
@@ -97,7 +97,7 @@ test("getForLink hits the per-link path with shared params", async () => {
 
 test("exportForLink hits the per-link export path", async () => {
   let url: URL | undefined;
-  const urlId = "0".repeat(24);
+  const urlId = asUrlId("0".repeat(24));
   server.use(
     http.get(`${BASE}/api/v1/export/links/:id`, ({ request }) => {
       url = new URL(request.url);

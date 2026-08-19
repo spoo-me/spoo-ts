@@ -1,4 +1,5 @@
 export { Spoo, type SpooOptions } from "./client.js";
+export { asUrlId, type UrlId } from "./core/ids.js";
 export {
   SpooError,
   APIError,
@@ -36,9 +37,14 @@ export {
   type CreatedLink,
   type CreateLinkParams,
   type UpdateLinkParams,
+  type UpdateLinkResult,
+  type DeleteLinkResult,
   type ListLinksParams,
   type ClaimItem,
+  type ClaimResultEntry,
+  type ClaimLinksResult,
   type BulkResult,
+  type BulkResultRow,
 } from "./resources/links.js";
 export {
   Stats,

@@ -1,5 +1,5 @@
 // List, filter, update and bulk-edit the links you own.
-import { Spoo } from "spoo.me";
+import { Spoo, asUrlId } from "spoo.me";
 
 const spoo = new Spoo();
 
@@ -32,7 +32,8 @@ if (staleIds.length > 0) {
 }
 
 // Claim links that were created anonymously (e.g. from your marketing site)
-// using the claim_token each anonymous create returned.
+// using the claim_token each anonymous create returned. Ids the SDK handed
+// you are already UrlId; ids persisted as plain strings go through asUrlId.
 await spoo.links.claim([
-  { urlId: "665f1e77bcf86cd799439011", claimToken: "stored-earlier" },
+  { urlId: asUrlId("665f1e77bcf86cd799439011"), claimToken: "stored-earlier" },
 ]);

@@ -2,12 +2,17 @@ import type { components } from "../generated/schema.js";
 import type { Transport, RequestOptions } from "../core/http.js";
 import { Page } from "../core/page.js";
 import { fromWire, toWire, type TimestampInput } from "../core/timestamps.js";
+import { asUrlId, type UrlId } from "../core/ids.js";
 
 type Schemas = components["schemas"];
 
 /** A link as returned by the management endpoints, timestamps parsed to Date. */
 export interface Link
-  extends Omit<Schemas["UrlListItem"], "created_at" | "last_click" | "expire_after"> {
+  extends Omit<
+    Schemas["UrlListItem"],
+    "id" | "created_at" | "last_click" | "expire_after"
+  > {
+  id: UrlId;
   /** Derived client-side from alias + domain; the list payload does not carry it. */
   short_url?: string;
   created_at?: Date | null | undefined;
@@ -16,8 +21,29 @@ export interface Link
 }
 
 /** A freshly created link, timestamps parsed to Date. */
-export interface CreatedLink extends Omit<Schemas["UrlResponse"], "created_at"> {
+export interface CreatedLink extends Omit<Schemas["UrlResponse"], "id" | "created_at"> {
+  id: UrlId;
   created_at: Date;
+}
+
+/** Response to an update or status change; the wire shape with a branded id. */
+export interface UpdateLinkResult extends Omit<Schemas["UpdateUrlResponse"], "id"> {
+  id: UrlId;
+}
+
+/** Response to a single-link delete; the wire shape with a branded id. */
+export interface DeleteLinkResult extends Omit<Schemas["DeleteUrlResponse"], "id"> {
+  id: UrlId;
+}
+
+/** Per-item outcome of a claim batch, id branded. */
+export interface ClaimResultEntry extends Omit<Schemas["ClaimResultItem"], "url_id"> {
+  url_id: UrlId;
+}
+
+/** Outcome of a claim batch; every submitted item gets a result. */
+export interface ClaimLinksResult extends Omit<Schemas["ClaimUrlsResponse"], "results"> {
+  results: ClaimResultEntry[];
 }
 
 export interface CreateLinkParams
@@ -55,17 +81,27 @@ export interface ListLinksParams {
 }
 
 export interface ClaimItem {
-  urlId: string;
+  urlId: UrlId;
   /** The one-time claim token returned by the anonymous shorten call. */
   claimToken: string;
 }
 
-export type BulkResult = Schemas["BulkUrlOperationResponse"];
+/** Per-item verdict of a bulk operation, id branded. */
+export interface BulkResultRow extends Omit<Schemas["BulkUrlResultRow"], "id"> {
+  id: UrlId;
+}
+
+/** Outcome of a bulk operation: a summary plus one row per requested id. */
+export interface BulkResult
+  extends Omit<Schemas["BulkUrlOperationResponse"], "results"> {
+  results: BulkResultRow[];
+}
 
 function parseListItem(item: Schemas["UrlListItem"], baseUrl: string): Link {
   const origin = item.domain != null ? `https://${item.domain}` : baseUrl;
   return {
     ...item,
+    id: asUrlId(item.id),
     ...(item.alias != null ? { short_url: `${origin}/${item.alias}` } : {}),
     created_at: item.created_at != null ? fromWire(item.created_at) : item.created_at,
     last_click: item.last_click != null ? fromWire(item.last_click) : item.last_click,
@@ -101,7 +137,7 @@ export class Links {
       { method: "POST", path: "/api/v1/shorten", body },
       opts,
     );
-    return { ...raw, created_at: fromWire(raw.created_at) };
+    return { ...raw, id: asUrlId(raw.id), created_at: fromWire(raw.created_at) };
   }
 
   /** Check whether an alias is free before trying to create it. */
@@ -155,7 +191,7 @@ export class Links {
   }
 
   /** Fetch one of your links by its id. */
-  async get(urlId: string, opts?: RequestOptions): Promise<Link> {
+  async get(urlId: UrlId, opts?: RequestOptions): Promise<Link> {
     const raw = await this.transport.request<Schemas["UrlListItem"]>(
       { method: "GET", path: `/api/v1/urls/${encodeURIComponent(urlId)}` },
       opts,
@@ -180,10 +216,10 @@ export class Links {
   }
 
   async update(
-    urlId: string,
+    urlId: UrlId,
     params: UpdateLinkParams,
     opts?: RequestOptions,
-  ): Promise<Schemas["UpdateUrlResponse"]> {
+  ): Promise<UpdateLinkResult> {
     const body = {
       ...params,
       ...(params.expire_after != null
@@ -197,10 +233,10 @@ export class Links {
   }
 
   async setStatus(
-    urlId: string,
+    urlId: UrlId,
     status: "ACTIVE" | "INACTIVE",
     opts?: RequestOptions,
-  ): Promise<Schemas["UpdateUrlResponse"]> {
+  ): Promise<UpdateLinkResult> {
     return this.transport.request(
       {
         method: "PATCH",
@@ -211,7 +247,7 @@ export class Links {
     );
   }
 
-  async delete(urlId: string, opts?: RequestOptions): Promise<Schemas["DeleteUrlResponse"]> {
+  async delete(urlId: UrlId, opts?: RequestOptions): Promise<DeleteLinkResult> {
     return this.transport.request(
       { method: "DELETE", path: `/api/v1/urls/${encodeURIComponent(urlId)}` },
       opts,
@@ -237,7 +273,7 @@ export class Links {
   async claim(
     claims: ClaimItem[],
     opts?: RequestOptions,
-  ): Promise<Schemas["ClaimUrlsResponse"]> {
+  ): Promise<ClaimLinksResult> {
     // Typed against the generated schema so a wire-shape drift is a compile
     // error, not a runtime 422 (0.6.0 and earlier sent a wrong field name).
     const body: Schemas["ClaimUrlsRequest"] = {
@@ -258,7 +294,7 @@ export class Links {
 export class LinksBulk {
   constructor(private readonly transport: Transport) {}
 
-  async delete(ids: string[], opts?: RequestOptions): Promise<BulkResult> {
+  async delete(ids: UrlId[], opts?: RequestOptions): Promise<BulkResult> {
     return this.transport.request(
       { method: "POST", path: "/api/v1/urls/bulk/delete", body: { ids } },
       opts,
@@ -266,7 +302,7 @@ export class LinksBulk {
   }
 
   async setStatus(
-    ids: string[],
+    ids: UrlId[],
     status: "ACTIVE" | "INACTIVE",
     opts?: RequestOptions,
   ): Promise<BulkResult> {
@@ -278,7 +314,7 @@ export class LinksBulk {
 
   /** Set or clear (null) expiry on many links. The expiry must be in the future. */
   async setExpiry(
-    ids: string[],
+    ids: UrlId[],
     expireAfter: TimestampInput | null,
     opts?: RequestOptions,
   ): Promise<BulkResult> {
@@ -294,7 +330,7 @@ export class LinksBulk {
 
   /** Move many links onto a custom domain, or back to the default with null. */
   async setDomain(
-    ids: string[],
+    ids: UrlId[],
     domain: string | null,
     opts?: RequestOptions,
   ): Promise<BulkResult> {
