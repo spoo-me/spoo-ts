@@ -1,0 +1,34 @@
+name: Production smoke
+
+# Runs the built SDK against production daily: create, stats, delete.
+# Catches prod-vs-SDK drift no offline test can. Requires the
+# SPOO_SMOKE_API_KEY secret (dedicated low-scope key).
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    if: github.repository == 'spoo-me/spoo-ts'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and build
+        run: npm ci && npm run build
+
+      - name: Smoke against production
+        env:
+          SPOO_SMOKE_API_KEY: ${{ secrets.SPOO_SMOKE_API_KEY }}
+        run: node scripts/prod-smoke.mjs

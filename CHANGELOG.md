@@ -1,5 +1,12 @@
 # spoo.me
 
+## 0.9.0
+
+### Minor Changes
+
+- The default request timeout drops from 60 to 30 seconds, aligning all spoo
+  SDKs on one value. Override per client or per request if you need longer.
+
 ## 0.8.0
 
 ### Minor Changes

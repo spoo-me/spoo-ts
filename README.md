@@ -170,7 +170,7 @@ try {
 
 Failed requests are retried twice by default with exponential backoff and
 jitter, honoring the `Retry-After` header on 429 responses. Retries and the
-60 second timeout are configurable per client and per request:
+30 second timeout are configurable per client and per request:
 
 ```ts
 const spoo = new Spoo({ maxRetries: 3, timeout: 15_000 });

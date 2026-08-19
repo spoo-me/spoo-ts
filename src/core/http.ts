@@ -38,7 +38,7 @@ export interface TransportOptions {
   apiKey?: string;
   token?: string | (() => string | Promise<string>);
   fetch?: Fetch;
-  /** Per-request timeout in milliseconds. Default 60 000. */
+  /** Per-request timeout in milliseconds. Default 30 000. */
   timeout?: number;
   /** Retries after the first attempt. Default 2. */
   maxRetries?: number;
@@ -167,7 +167,7 @@ export class Transport {
       body = JSON.stringify(spec.body);
     }
 
-    const timeout = opts.timeout ?? this.options.timeout ?? 60_000;
+    const timeout = opts.timeout ?? this.options.timeout ?? 30_000;
     const timeoutSignal = AbortSignal.timeout(timeout);
     const signal = opts.signal
       ? AbortSignal.any([opts.signal, timeoutSignal])

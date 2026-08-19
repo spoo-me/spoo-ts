@@ -21,7 +21,7 @@ export interface SpooOptions {
   baseUrl?: string;
   /** Custom fetch implementation (proxies, instrumentation, tests). */
   fetch?: Fetch;
-  /** Per-request timeout in milliseconds. Default 60 000. */
+  /** Per-request timeout in milliseconds. Default 30 000. */
   timeout?: number;
   /** Retries after the first attempt. Default 2. */
   maxRetries?: number;
