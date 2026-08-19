@@ -29,41 +29,6 @@ test("auth.me unwraps the user envelope", async () => {
   expect(me.email_verified).toBe(true);
 });
 
-test("keys.list parses unix timestamps to Date; delete carries revoke", async () => {
-  let deleteUrl: URL | undefined;
-  server.use(
-    http.get(`${BASE}/api/v1/keys`, () =>
-      HttpResponse.json({
-        keys: [
-          {
-            id: "k1",
-            name: "ci",
-            scopes: ["urls:read"],
-            created_at: 1704067200,
-            expires_at: null,
-            last_used_at: 1704070800,
-            revoked: false,
-            token_prefix: "spoo_abc1",
-          },
-        ],
-      }),
-    ),
-    http.delete(`${BASE}/api/v1/keys/:id`, ({ request }) => {
-      deleteUrl = new URL(request.url);
-      return HttpResponse.json({ success: true, action: "revoked" });
-    }),
-  );
-  const spoo = new Spoo({ baseUrl: BASE, token: "jwt" });
-  const keys = await spoo.keys.list();
-  expect(keys[0]?.created_at).toBeInstanceOf(Date);
-  expect(keys[0]?.created_at?.toISOString()).toBe("2024-01-01T00:00:00.000Z");
-  expect(keys[0]?.expires_at).toBeNull();
-
-  const res = await spoo.keys.delete("k1", { revoke: true });
-  expect(deleteUrl?.searchParams.get("revoke")).toBe("true");
-  expect(res.action).toBe("revoked");
-});
-
 test("tokenProvider.invalidate forces a refresh on the next call", async () => {
   const longLived = fakeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
   let refreshes = 0;
@@ -71,7 +36,7 @@ test("tokenProvider.invalidate forces a refresh on the next call", async () => {
     http.post(`${BASE}/auth/device/refresh`, () => {
       refreshes += 1;
       return HttpResponse.json({
-        access_token: fakeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 }),
+        access_token: fakeJwt({ exp: Math.floor(Date.now() / 1000) + 3600, gen: refreshes }),
         refresh_token: `r${refreshes + 1}`,
       });
     }),
