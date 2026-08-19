@@ -12,7 +12,10 @@
     "skipLibCheck": true,
     "declaration": true,
     "noEmit": true,
-    "types": []
+    "types": [],
+    "paths": {
+      "spoo.me": ["./src/index.ts"]
+    }
   },
-  "include": ["src", "tests", "tsdown.config.ts", "vitest.config.ts"]
+  "include": ["src", "tests", "examples", "tsdown.config.ts", "vitest.config.ts"]
 }
