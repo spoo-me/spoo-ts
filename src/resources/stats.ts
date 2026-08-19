@@ -32,8 +32,13 @@ export type StatsExportFormat = "csv" | "xlsx" | "json" | "xml";
 /** A generated export file. `csv` format is a ZIP archive, not a bare CSV. */
 export interface StatsExport {
   data: Blob;
-  /** Parsed from the Content-Disposition header, when the server names the file. */
-  filename?: string;
+  /**
+   * The server-suggested filename, sanitized to a bare basename so it is
+   * always safe to join onto a download directory. Falls back to
+   * `spoo-export.<ext>` when the server names no file or names one that
+   * does not survive sanitization.
+   */
+  filename: string;
 }
 
 /**
@@ -125,6 +130,37 @@ function filenameFromDisposition(value: string | null): string | undefined {
   return plain?.[1]?.trim();
 }
 
+/**
+ * Reduce a wire-supplied filename to a safe basename, or reject it.
+ *
+ * The header comes from whatever server the client is pointed at, and
+ * consumers join the result onto a download directory, so it must never be
+ * able to carry a path. Everything up to the last separator (either kind)
+ * is dropped; a name that ends up empty or purely relative is rejected.
+ * Sanitization runs after RFC 5987 decoding, so an encoded traversal is
+ * reduced the same as a literal one.
+ */
+function sanitizeFilename(name: string | undefined): string | undefined {
+  if (name === undefined) return undefined;
+  const cut = Math.max(name.lastIndexOf("/"), name.lastIndexOf("\\"));
+  const base = name.slice(cut + 1).trim();
+  if (base === "" || base === "." || base === "..") return undefined;
+  return base;
+}
+
+/** The synthesized fallback filename for an export nobody named safely. */
+function defaultExportFilename(format: StatsExportFormat): string {
+  // The csv format arrives as a ZIP archive, so the extension says so.
+  return `spoo-export.${format === "csv" ? "zip" : format}`;
+}
+
+function exportFilename(headers: Headers, format: StatsExportFormat): string {
+  return (
+    sanitizeFilename(filenameFromDisposition(headers.get("content-disposition"))) ??
+    defaultExportFilename(format)
+  );
+}
+
 export class Stats {
   constructor(private readonly transport: Transport) {}
 
@@ -180,8 +216,7 @@ export class Stats {
       },
       opts,
     );
-    const filename = filenameFromDisposition(meta.headers.get("content-disposition"));
-    return { data, ...(filename !== undefined ? { filename } : {}) };
+    return { data, filename: exportFilename(meta.headers, format) };
   }
 
   /**
@@ -205,7 +240,6 @@ export class Stats {
       },
       opts,
     );
-    const filename = filenameFromDisposition(meta.headers.get("content-disposition"));
-    return { data, ...(filename !== undefined ? { filename } : {}) };
+    return { data, filename: exportFilename(meta.headers, format) };
   }
 }

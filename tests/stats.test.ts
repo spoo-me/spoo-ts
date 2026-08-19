@@ -148,11 +148,59 @@ test("export parses an RFC 5987 encoded filename", async () => {
   expect(result.filename).toBe("stats 📈.json");
 });
 
-test("export omits filename when the header is absent", async () => {
+test("export synthesizes a filename when the header is absent", async () => {
   server.use(
     http.get(`${BASE}/api/v1/export`, () => new HttpResponse(new Uint8Array([1]).buffer)),
   );
   const result = await client().stats.export({}, "xlsx");
-  expect(result.filename).toBeUndefined();
-  expect("filename" in result).toBe(false);
+  expect(result.filename).toBe("spoo-export.xlsx");
+});
+
+async function exportWithDisposition(disposition: string) {
+  server.use(
+    http.get(`${BASE}/api/v1/export`, () =>
+      new HttpResponse(new Uint8Array([1]).buffer, {
+        headers: { "Content-Disposition": disposition },
+      }),
+    ),
+  );
+  return client().stats.export({}, "json");
+}
+
+test("a traversal filename is reduced to its basename", async () => {
+  const result = await exportWithDisposition('attachment; filename="../../../evil.json"');
+  expect(result.filename).toBe("evil.json");
+});
+
+test("an absolute filename is reduced to its basename", async () => {
+  const result = await exportWithDisposition(
+    'attachment; filename="/tmp/absolute-evil.json"',
+  );
+  expect(result.filename).toBe("absolute-evil.json");
+});
+
+test("an RFC 5987 encoded traversal is sanitized after decoding", async () => {
+  const result = await exportWithDisposition(
+    "attachment; filename*=utf-8''%2e%2e%2f%2e%2e%2fesc.json",
+  );
+  expect(result.filename).toBe("esc.json");
+});
+
+test("a backslash traversal is reduced to its basename", async () => {
+  const result = await exportWithDisposition(
+    'attachment; filename="..\\..\\evil.json"',
+  );
+  expect(result.filename).toBe("evil.json");
+});
+
+test("a filename that reduces to nothing falls back to the default", async () => {
+  for (const hostile of ['filename=".."', 'filename="."', 'filename="dir/"']) {
+    const result = await exportWithDisposition(`attachment; ${hostile}`);
+    expect(result.filename).toBe("spoo-export.json");
+  }
+});
+
+test("a benign filename passes through unchanged", async () => {
+  const result = await exportWithDisposition('attachment; filename="spoo-stats 2026.json"');
+  expect(result.filename).toBe("spoo-stats 2026.json");
 });

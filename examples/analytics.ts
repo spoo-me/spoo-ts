@@ -26,7 +26,8 @@ const one = await spoo.stats.getForLink("665f1e77bcf86cd799439011", {
 });
 console.log(one.alias, one.summary.total_clicks);
 
-// Exports come back as a Blob with the server-suggested filename.
-// Note: the "csv" format is a ZIP archive (one CSV per dimension).
+// Exports come back as a Blob plus a filename that is always safe to write:
+// the server-suggested name is sanitized to a bare basename, with a
+// spoo-export.<ext> fallback. The "csv" format is a ZIP archive.
 const file = await spoo.stats.export({ groupBy: ["country", "browser"] }, "xlsx");
-await writeFile(file.filename ?? "stats.xlsx", new Uint8Array(await file.data.arrayBuffer()));
+await writeFile(file.filename, new Uint8Array(await file.data.arrayBuffer()));
