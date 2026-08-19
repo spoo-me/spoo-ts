@@ -58,7 +58,10 @@ export interface RateLimitInfo {
   remaining?: number;
   /** Unix epoch seconds when the window resets. */
   reset?: number;
-  /** Seconds to wait before retrying. Only sent on 429 responses. */
+  /**
+   * Seconds to wait before retrying, from `Retry-After` in either RFC 9110
+   * form (delay-seconds or HTTP-date). Only sent on 429 responses.
+   */
   retryAfter?: number;
 }
 
@@ -197,6 +200,20 @@ export class APITimeoutError extends APIConnectionError {
   }
 }
 
+/**
+ * Parse a `Retry-After` header into whole seconds from now. RFC 9110 allows
+ * two forms: delay-seconds and an HTTP-date. A date in the past means no
+ * wait (0). Unparseable values return undefined.
+ */
+export function parseRetryAfter(headers: Headers): number | undefined {
+  const raw = headers.get("retry-after");
+  if (raw === null) return undefined;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  const date = Date.parse(raw);
+  if (Number.isNaN(date)) return undefined;
+  return Math.max(0, Math.ceil((date - Date.now()) / 1000));
+}
+
 export function parseRateLimitHeaders(headers: Headers): RateLimitInfo {
   const info: RateLimitInfo = {};
   const num = (name: string): number | undefined => {
@@ -208,7 +225,7 @@ export function parseRateLimitHeaders(headers: Headers): RateLimitInfo {
   const limit = num("x-ratelimit-limit");
   const remaining = num("x-ratelimit-remaining");
   const reset = num("x-ratelimit-reset");
-  const retryAfter = num("retry-after");
+  const retryAfter = parseRetryAfter(headers);
   if (limit !== undefined) info.limit = limit;
   if (remaining !== undefined) info.remaining = remaining;
   if (reset !== undefined) info.reset = reset;

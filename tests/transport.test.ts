@@ -53,9 +53,98 @@ test("retries a 429 honoring Retry-After, then succeeds", async () => {
       return HttpResponse.json({ id: "0".repeat(24), password_set: false });
     }),
   );
+  const started = Date.now();
   const link = await client().links.get(asUrlId("0".repeat(24)));
   expect(calls).toBe(2);
   expect(link.id).toBe("0".repeat(24));
+  // Retry-After 0 is honored as-is; computed backoff would sleep >= 250ms.
+  expect(Date.now() - started).toBeLessThan(200);
+});
+
+test("honors an HTTP-date Retry-After; a past date means no wait", async () => {
+  let calls = 0;
+  server.use(
+    http.get(`${BASE}/api/v1/urls/:id`, () => {
+      calls += 1;
+      if (calls === 1) {
+        return HttpResponse.json(
+          { error: "Too many requests", code: "rate_limit_exceeded" },
+          { status: 429, headers: { "Retry-After": new Date(Date.now() - 5_000).toUTCString() } },
+        );
+      }
+      return HttpResponse.json({ id: "0".repeat(24), password_set: false });
+    }),
+  );
+  const started = Date.now();
+  await client().links.get(asUrlId("0".repeat(24)));
+  expect(calls).toBe(2);
+  expect(Date.now() - started).toBeLessThan(200);
+});
+
+test("a Retry-After beyond 60s surfaces the 429 immediately with the full wait", async () => {
+  let calls = 0;
+  server.use(
+    http.get(`${BASE}/api/v1/urls/:id`, () => {
+      calls += 1;
+      return HttpResponse.json(
+        { error: "Too many requests", code: "rate_limit_exceeded" },
+        { status: 429, headers: { "Retry-After": "120" } },
+      );
+    }),
+  );
+  const started = Date.now();
+  const err = await client()
+    .links.get(asUrlId("0".repeat(24)))
+    .catch((e: unknown) => e);
+  expect(err).toBeInstanceOf(RateLimitError);
+  expect(calls).toBe(1);
+  expect(Date.now() - started).toBeLessThan(500);
+  // The uncapped mandated wait stays readable on the error.
+  expect((err as RateLimitError).rateLimit.retryAfter).toBe(120);
+});
+
+test("an HTTP-date Retry-After beyond 60s surfaces immediately too", async () => {
+  let calls = 0;
+  server.use(
+    http.get(`${BASE}/api/v1/urls/:id`, () => {
+      calls += 1;
+      return HttpResponse.json(
+        { error: "Too many requests", code: "rate_limit_exceeded" },
+        { status: 429, headers: { "Retry-After": new Date(Date.now() + 300_000).toUTCString() } },
+      );
+    }),
+  );
+  const started = Date.now();
+  const err = await client()
+    .links.get(asUrlId("0".repeat(24)))
+    .catch((e: unknown) => e);
+  expect(err).toBeInstanceOf(RateLimitError);
+  expect(calls).toBe(1);
+  expect(Date.now() - started).toBeLessThan(500);
+  const retryAfter = (err as RateLimitError).rateLimit.retryAfter;
+  expect(retryAfter).toBeGreaterThanOrEqual(298);
+  expect(retryAfter).toBeLessThanOrEqual(301);
+});
+
+test("computed backoff still applies when Retry-After is absent", async () => {
+  let calls = 0;
+  server.use(
+    http.get(`${BASE}/api/v1/urls/:id`, () => {
+      calls += 1;
+      if (calls === 1) {
+        return HttpResponse.json(
+          { error: "boom", code: "internal_error" },
+          { status: 500 },
+        );
+      }
+      return HttpResponse.json({ id: "0".repeat(24), password_set: false });
+    }),
+  );
+  const started = Date.now();
+  await client({ maxRetries: 1 }).links.get(asUrlId("0".repeat(24)));
+  expect(calls).toBe(2);
+  // First computed backoff is 500ms * jitter in [0.5, 1.0) => at least 250ms.
+  expect(Date.now() - started).toBeGreaterThanOrEqual(240);
 });
 
 test("exhausted retries surface RateLimitError with parsed rate-limit state", async () => {

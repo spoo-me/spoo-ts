@@ -11,6 +11,7 @@ import {
   APITimeoutError,
   apiErrorFromResponse,
   parseRateLimitHeaders,
+  parseRetryAfter,
   type RateLimitInfo,
 } from "./errors.js";
 import { SDK_VERSION } from "../version.js";
@@ -76,6 +77,16 @@ export interface ResponseMeta {
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 const IDEMPOTENT_METHODS = new Set(["GET", "PUT", "DELETE"]);
 
+/**
+ * Longest server-mandated wait the transport will sit through. The
+ * per-request timeout covers each attempt, not the sleeps between them, so
+ * an uncapped honored Retry-After would make one call's wall clock
+ * unbounded. Beyond the cap the response surfaces as its normal error; the
+ * full mandated wait stays readable on it (`rateLimit.retryAfter`,
+ * `headers`).
+ */
+const RETRY_AFTER_MAX_MS = 60_000;
+
 export class Transport {
   private readonly options: TransportOptions;
   private readonly fetchFn: Fetch;
@@ -119,9 +130,16 @@ export class Transport {
           response.headers,
         );
         if (attempt < maxRetries && this.shouldRetry(spec, response.status)) {
-          attempt += 1;
-          await this.backoff(attempt, response.headers, spec.path);
-          continue;
+          const retryAfterSeconds = parseRetryAfter(response.headers);
+          const retryAfterMs =
+            retryAfterSeconds === undefined ? undefined : retryAfterSeconds * 1000;
+          if (retryAfterMs === undefined || retryAfterMs <= RETRY_AFTER_MAX_MS) {
+            attempt += 1;
+            await this.backoff(attempt, retryAfterMs, spec.path);
+            continue;
+          }
+          // The server mandated a wait longer than the cap: fall through and
+          // surface the response instead of parking the caller.
         }
         await this.options.hooks?.onError?.(error);
         throw error;
@@ -210,13 +228,12 @@ export class Transport {
 
   private async backoff(
     attempt: number,
-    headers: Headers | undefined,
+    retryAfterMs: number | undefined,
     path: string,
   ): Promise<void> {
     let delayMs: number;
-    const retryAfter = headers?.get("retry-after");
-    if (retryAfter !== null && retryAfter !== undefined && /^\d+$/.test(retryAfter)) {
-      delayMs = Number(retryAfter) * 1000;
+    if (retryAfterMs !== undefined) {
+      delayMs = Math.min(retryAfterMs, RETRY_AFTER_MAX_MS);
     } else {
       // Jittered exponential backoff: 0.5s, 1s, 2s ... capped at 8s.
       const base = Math.min(500 * 2 ** (attempt - 1), 8_000);
