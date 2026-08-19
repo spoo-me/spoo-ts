@@ -2490,7 +2490,7 @@ export interface components {
              * @description Expiration applied to every id — ISO 8601 or epoch seconds, must be in the future. Pass `null` to clear expiry. One value for the whole batch.
              * @example 1767225600
              */
-            expire_after: string | null;
+            expire_after: string | number | null;
         };
         /**
          * BulkUpdateStatusRequest
@@ -2801,7 +2801,7 @@ export interface components {
              * @example 2025-12-31T23:59:59Z
              * @example 1735689599
              */
-            expire_after?: string | null;
+            expire_after?: string | number | null;
             /**
              * Private Stats
              * @description Make statistics private (only owner can view). Requires authentication.
@@ -4150,7 +4150,7 @@ export interface components {
              * @example 2025-12-31T23:59:59Z
              * @example 1735689599
              */
-            expire_after?: string | null;
+            expire_after?: string | number | null;
             /**
              * Private Stats
              * @description Make statistics private (only owner can view). Pass `null` to keep existing.
