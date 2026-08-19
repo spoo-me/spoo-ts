@@ -3,7 +3,6 @@ import { Links } from "./resources/links.js";
 import { Stats } from "./resources/stats.js";
 import { PublicLinks } from "./resources/public.js";
 import { Emoji } from "./resources/emoji.js";
-import { Misc } from "./resources/misc.js";
 import { OAuth } from "./resources/oauth.js";
 import { Auth } from "./resources/auth.js";
 
@@ -48,7 +47,6 @@ export class Spoo {
   /** Public, unauthenticated per-link endpoints (stats page, preview). */
   readonly public: PublicLinks;
   readonly emoji: Emoji;
-  readonly misc: Misc;
   /** Sign in with Spoo, client half: PKCE, code exchange, refreshing tokens. */
   readonly oauth: OAuth;
   readonly auth: Auth;
@@ -85,7 +83,6 @@ export class Spoo {
     this.stats = new Stats(this._transport);
     this.public = new PublicLinks(this._transport);
     this.emoji = new Emoji(this._transport);
-    this.misc = new Misc(this._transport);
     this.oauth = new OAuth(this._transport, baseUrl.replace(/\/+$/, ""));
     this.auth = new Auth(this._transport);
   }

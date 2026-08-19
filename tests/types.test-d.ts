@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from "vitest";
 import type {
   EmojiSet,
-  HealthStatus,
   Link,
   CreatedLink,
   PublicPreviewResponse,
@@ -30,11 +29,6 @@ test("StatsExport carries a Blob and an optional filename", () => {
   expectTypeOf<StatsExport["filename"]>().toEqualTypeOf<string | undefined>();
 });
 
-test("HealthStatus status is the closed three-state union", () => {
-  expectTypeOf<HealthStatus["status"]>().toEqualTypeOf<
-    "healthy" | "degraded" | "unhealthy"
-  >();
-});
 
 test("public preview only reveals destinations conditionally", () => {
   expectTypeOf<PublicPreviewResponse["destination"]>().extract<null>().toEqualTypeOf<null>();

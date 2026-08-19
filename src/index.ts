@@ -52,7 +52,6 @@ export {
   type PublicPreviewResponse,
 } from "./resources/public.js";
 export { Emoji, type EmojiSet, type EmojiEntry } from "./resources/emoji.js";
-export { Misc, type HealthStatus } from "./resources/misc.js";
 export {
   OAuth,
   type DeviceTokens,
