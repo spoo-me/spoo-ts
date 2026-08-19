@@ -1,5 +1,33 @@
 # spoo.me
 
+## 0.10.0
+
+### Minor Changes
+
+- Branded link ids. `Link.id` and every id the API returns as a MongoDB
+  ObjectId (created links, claim results, bulk rows, per-link stats) are now
+  typed `UrlId`, and the methods that address a link by id
+  (`links.get/update/setStatus/delete`, bulk ids, claim items,
+  `stats.getForLink`, `stats.exportForLink`, the aggregate `urlId` filter)
+  require it. An alias or short code no longer typechecks where an id
+  belongs; that mixup used to surface only as a runtime 404. Compile-time
+  only, the wire shape is untouched. Migration: code passing around ids the
+  SDK returned keeps compiling as-is; ids persisted as plain strings go
+  through the new `asUrlId()` helper.
+- Server-supplied export filenames are sanitized. The Content-Disposition
+  filename is reduced to its basename (after RFC 5987 decoding), and names
+  that do not survive are replaced with a synthesized `spoo-export.<ext>`
+  default, so a hostile or misconfigured server can never hand back a path
+  that escapes the download directory. `StatsExport.filename` is now always
+  present instead of optional.
+- Raw typed request methods: `spoo.get/post/patch/delete<T>(path, ...)` send
+  a request through the configured transport, with auth, retries, timeout,
+  client tag and error mapping applied, for endpoints the SDK does not cover
+  yet.
+- README now states the SDK's scope (what is deliberately out and why),
+  carries an API coverage table, and documents `Blob.stream()` for Node
+  consumers who want streaming exports instead of buffering.
+
 ## 0.9.0
 
 ### Minor Changes
