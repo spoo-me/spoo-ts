@@ -280,4 +280,4 @@ at [docs.spoo.me](https://docs.spoo.me).
 
 ## License
 
-[AGPL-3.0](./LICENSE)
+[MIT](./LICENSE)

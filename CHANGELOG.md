@@ -1,5 +1,11 @@
 # spoo.me
 
+## 0.10.1
+
+### Patch Changes
+
+- License changed to MIT.
+
 ## 0.10.0
 
 ### Minor Changes

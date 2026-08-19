@@ -1,6 +1,6 @@
 {
   "name": "spoo.me",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Official TypeScript SDK for the spoo.me link management API",
   "keywords": [
     "spoo.me",
@@ -14,7 +14,7 @@
     "type": "git",
     "url": "git+https://github.com/spoo-me/spoo-ts.git"
   },
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=20"
