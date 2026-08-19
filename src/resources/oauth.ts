@@ -12,14 +12,27 @@ export interface AuthorizationUrlParams {
   /** Your app's id from the spoo.me connected-apps registry. */
   appId: string;
   /**
-   * Must exactly match the redirect URI registered for the app; the server
-   * rejects everything else, including a different port.
+   * Must exactly match a redirect URI registered for the app; the server
+   * rejects everything else, including a different port. Omit to use the
+   * app's registered default (extensions relying on the hosted callback
+   * page do this).
    */
-  redirectUri: string;
+  redirectUri?: string;
   /** CSRF-binding state echoed back on the callback. See `generateState()`. */
   state: string;
   /** The S256 challenge from `generatePkcePair()`. */
   codeChallenge: string;
+}
+
+/** A credential for `new Spoo({ token })` that also supports forced refresh. */
+export interface TokenProvider {
+  (): Promise<string>;
+  /**
+   * Mark the current access token stale so the next call refreshes. Use it
+   * to implement retry-on-401: catch AuthenticationError, invalidate, retry
+   * once. Proactive expiry-based refresh happens without this.
+   */
+  invalidate(): void;
 }
 
 export interface TokenProviderOptions {
@@ -49,7 +62,9 @@ export class OAuth {
   authorizationUrl(params: AuthorizationUrlParams): string {
     const url = new URL(this.baseUrl + "/auth/device/login");
     url.searchParams.set("app_id", params.appId);
-    url.searchParams.set("redirect_uri", params.redirectUri);
+    if (params.redirectUri !== undefined) {
+      url.searchParams.set("redirect_uri", params.redirectUri);
+    }
     url.searchParams.set("state", params.state);
     url.searchParams.set("code_challenge", params.codeChallenge);
     url.searchParams.set("code_challenge_method", "S256");
@@ -106,11 +121,12 @@ export class OAuth {
    * Throws `SessionExpiredError` from the pending call when the refresh
    * token is rejected; catch it to send the user back through login.
    */
-  tokenProvider(options: TokenProviderOptions): () => Promise<string> {
+  tokenProvider(options: TokenProviderOptions): TokenProvider {
     const skewMs = (options.expirySkew ?? 30) * 1000;
     let access = options.tokens.access_token;
     let refresh = options.tokens.refresh_token;
     let expiresAt = readExpiry(access);
+    let stale = false;
     let inflight: Promise<void> | undefined;
 
     const doRefresh = async (): Promise<void> => {
@@ -118,11 +134,12 @@ export class OAuth {
       access = next.access_token;
       refresh = next.refresh_token;
       expiresAt = readExpiry(access);
+      stale = false;
       await options.onRefresh?.(next);
     };
 
-    return async () => {
-      if (expiresAt === undefined || Date.now() < expiresAt - skewMs) {
+    const provider = (async () => {
+      if (!stale && (expiresAt === undefined || Date.now() < expiresAt - skewMs)) {
         return access;
       }
       inflight ??= doRefresh().finally(() => {
@@ -130,7 +147,11 @@ export class OAuth {
       });
       await inflight;
       return access;
+    }) as TokenProvider;
+    provider.invalidate = () => {
+      stale = true;
     };
+    return provider;
   }
 }
 

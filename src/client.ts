@@ -5,6 +5,8 @@ import { PublicLinks } from "./resources/public.js";
 import { Emoji } from "./resources/emoji.js";
 import { Misc } from "./resources/misc.js";
 import { OAuth } from "./resources/oauth.js";
+import { Auth } from "./resources/auth.js";
+import { Keys } from "./resources/keys.js";
 
 export interface SpooOptions {
   /**
@@ -50,6 +52,9 @@ export class Spoo {
   readonly misc: Misc;
   /** Sign in with Spoo, client half: PKCE, code exchange, refreshing tokens. */
   readonly oauth: OAuth;
+  readonly auth: Auth;
+  /** Key management: session or keys:manage app tokens only, never API keys. */
+  readonly keys: Keys;
 
   /** @internal Transport shared by every resource namespace. */
   readonly _transport: Transport;
@@ -85,6 +90,8 @@ export class Spoo {
     this.emoji = new Emoji(this._transport);
     this.misc = new Misc(this._transport);
     this.oauth = new OAuth(this._transport, baseUrl.replace(/\/+$/, ""));
+    this.auth = new Auth(this._transport);
+    this.keys = new Keys(this._transport);
   }
 }
 

@@ -58,7 +58,10 @@ export {
   type DeviceTokens,
   type RefreshedTokens,
   type AuthorizationUrlParams,
+  type TokenProvider,
   type TokenProviderOptions,
 } from "./resources/oauth.js";
 export { generatePkcePair, generateState, type PkcePair } from "./core/pkce.js";
+export { Auth, type UserProfile } from "./resources/auth.js";
+export { Keys, type ApiKey } from "./resources/keys.js";
 export type { components as ApiSchema } from "./generated/schema.js";

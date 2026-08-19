@@ -1,5 +1,14 @@
 # spoo.me
 
+## 0.4.0
+
+### Minor Changes
+
+- What the first-party ports needed: auth.me() (works with API keys and app
+  tokens), keys.list/delete (session or keys:manage tokens), an invalidate()
+  handle on tokenProvider for retry-on-401, and authorizationUrl accepting a
+  registered-default redirect (redirectUri now optional).
+
 ## 0.3.0
 
 ### Minor Changes
