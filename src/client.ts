@@ -28,6 +28,12 @@ export interface SpooOptions {
   logger?: Logger;
   hooks?: RequestHooks;
   /**
+   * X-Spoo-Client identity, e.g. "raycast/3.0.0". First-party apps built on
+   * the SDK should set their own slug so traffic is attributed to the
+   * product, not the SDK. Defaults to sdk-ts/<version>.
+   */
+  clientTag?: string;
+  /**
    * Using an API key in a browser ships that key to every visitor. Set this
    * only when the key is scoped and you understand the exposure. Anonymous
    * (keyless) browser usage needs no flag.
@@ -70,6 +76,7 @@ export class Spoo {
       ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
       ...(options.logger !== undefined ? { logger: options.logger } : {}),
       ...(options.hooks !== undefined ? { hooks: options.hooks } : {}),
+      ...(options.clientTag !== undefined ? { clientTag: options.clientTag } : {}),
     });
 
     this.links = new Links(this._transport);

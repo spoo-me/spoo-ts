@@ -124,6 +124,12 @@ test("sends bearer auth and the sdk client tag; parses created_at to Date", asyn
   const created = await client().links.create({ long_url: "https://example.com" });
   expect(seenAuth).toBe("Bearer spoo_test");
   expect(seenTag).toMatch(/^sdk-ts\//);
+
+  // First-party apps override the identity with their own slug
+  await client({ clientTag: "raycast/3.0.0" }).links.create({
+    long_url: "https://example.com",
+  });
+  expect(seenTag).toBe("raycast/3.0.0");
   expect(created.created_at).toBeInstanceOf(Date);
   expect(created.created_at.toISOString()).toBe("2024-01-01T00:00:00.000Z");
 });
