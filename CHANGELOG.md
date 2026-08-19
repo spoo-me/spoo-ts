@@ -1,5 +1,20 @@
 # spoo.me
 
+## 0.10.2
+
+### Patch Changes
+
+- `Retry-After` is now parsed in both forms RFC 9110 allows: delay-seconds
+  and HTTP-date. The date form used to be ignored and fell back to computed
+  backoff. `RateLimitError.rateLimit.retryAfter` carries the parsed value
+  for both forms.
+- An honored `Retry-After` is capped at 60 seconds. When the server mandates
+  a longer wait, the transport does not retry at all: the 429/503 surfaces
+  immediately as its normal error, with the full mandated wait still
+  readable on `rateLimit.retryAfter` and the response headers. The
+  per-request timeout covers each attempt but not the sleeps between them,
+  so an uncapped honored wait made a single call's wall clock unbounded.
+
 ## 0.10.1
 
 ### Patch Changes
