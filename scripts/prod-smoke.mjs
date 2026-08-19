@@ -14,7 +14,7 @@ let id;
 
 try {
   const link = await spoo.links.create({
-    long_url: `https://spoo.me/?smoke=${Date.now()}`,
+    long_url: `https://example.com/?smoke=${Date.now()}`,
   });
   id = link.id;
   if (!link.short_url.startsWith("http")) throw new Error("create: bad short_url");
