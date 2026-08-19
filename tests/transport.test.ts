@@ -191,6 +191,6 @@ test("claim maps camelCase inputs onto the wire shape", async () => {
   );
   await client().links.claim([{ urlId: "0".repeat(24), claimToken: "deed" }]);
   expect(body).toEqual({
-    claims: [{ url_id: "0".repeat(24), claim_token: "deed" }],
+    claims: [{ url_id: "0".repeat(24), token: "deed" }],
   });
 });

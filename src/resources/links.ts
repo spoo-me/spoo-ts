@@ -231,21 +231,20 @@ export class Links {
 
   /**
    * Claim anonymously-created links into the authenticated account using the
-   * one-time claim tokens from `create`. Items resolve independently; the
-   * call never throws on per-item failures.
+   * one-time claim tokens from `create`. Up to 16 per call; items resolve
+   * independently and the call never throws on per-item failures.
    */
   async claim(
     claims: ClaimItem[],
     opts?: RequestOptions,
   ): Promise<Schemas["ClaimUrlsResponse"]> {
+    // Typed against the generated schema so a wire-shape drift is a compile
+    // error, not a runtime 422 (0.6.0 and earlier sent a wrong field name).
+    const body: Schemas["ClaimUrlsRequest"] = {
+      claims: claims.map((c) => ({ url_id: c.urlId, token: c.claimToken })),
+    };
     return this.transport.request(
-      {
-        method: "POST",
-        path: "/api/v1/urls/claim",
-        body: {
-          claims: claims.map((c) => ({ url_id: c.urlId, claim_token: c.claimToken })),
-        },
-      },
+      { method: "POST", path: "/api/v1/urls/claim", body },
       opts,
     );
   }

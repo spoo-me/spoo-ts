@@ -1,5 +1,14 @@
 # spoo.me
 
+## 0.6.1
+
+### Patch Changes
+
+- Fixes links.claim(): the wire field for the claim token is `token`, not
+  `claim_token`, so every earlier version failed server-side validation on
+  claim. The request body is now typed against the generated schema so a
+  shape drift is a compile error. Claims are capped at 16 per call.
+
 ## 0.6.0
 
 ### Minor Changes
