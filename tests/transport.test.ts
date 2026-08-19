@@ -218,3 +218,63 @@ test("claim maps camelCase inputs onto the wire shape", async () => {
     claims: [{ url_id: "0".repeat(24), token: "deed" }],
   });
 });
+
+test("raw get sends auth, client tag and query through the transport", async () => {
+  let seenAuth: string | null = null;
+  let seenTag: string | null = null;
+  let url: URL | undefined;
+  server.use(
+    http.get(`${BASE}/api/v1/some/new/endpoint`, ({ request }) => {
+      seenAuth = request.headers.get("authorization");
+      seenTag = request.headers.get("x-spoo-client");
+      url = new URL(request.url);
+      return HttpResponse.json({ answer: 42 });
+    }),
+  );
+  const data = await client().get<{ answer: number }>("/api/v1/some/new/endpoint", {
+    page: 2,
+    verbose: true,
+    skipped: undefined,
+  });
+  expect(data.answer).toBe(42);
+  expect(seenAuth).toBe("Bearer spoo_test");
+  expect(seenTag).toMatch(/^sdk-ts\//);
+  expect(url!.searchParams.get("page")).toBe("2");
+  expect(url!.searchParams.get("verbose")).toBe("true");
+  expect(url!.searchParams.has("skipped")).toBe(false);
+});
+
+test("raw post sends a JSON body and maps errors like every typed method", async () => {
+  let body: unknown;
+  server.use(
+    http.post(`${BASE}/api/v1/some/new/endpoint`, async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json(
+        { error: "nope", code: "not_found" },
+        { status: 404 },
+      );
+    }),
+  );
+  const err = await client()
+    .post<never>("/api/v1/some/new/endpoint", { name: "x" })
+    .catch((e: unknown) => e);
+  expect(body).toEqual({ name: "x" });
+  expect(err).toBeInstanceOf(NotFoundError);
+});
+
+test("raw patch and delete hit the given path", async () => {
+  const seen: string[] = [];
+  server.use(
+    http.patch(`${BASE}/api/v1/thing/1`, ({ request }) => {
+      seen.push(`PATCH ${new URL(request.url).pathname}`);
+      return HttpResponse.json({ ok: true });
+    }),
+    http.delete(`${BASE}/api/v1/thing/1`, ({ request }) => {
+      seen.push(`DELETE ${new URL(request.url).pathname}`);
+      return HttpResponse.json({ ok: true });
+    }),
+  );
+  await client().patch<{ ok: boolean }>("/api/v1/thing/1", { field: "v" });
+  await client().delete<{ ok: boolean }>("/api/v1/thing/1");
+  expect(seen).toEqual(["PATCH /api/v1/thing/1", "DELETE /api/v1/thing/1"]);
+});

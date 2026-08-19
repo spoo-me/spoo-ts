@@ -1,4 +1,4 @@
-export { Spoo, type SpooOptions } from "./client.js";
+export { Spoo, type SpooOptions, type QueryParams } from "./client.js";
 export { asUrlId, type UrlId } from "./core/ids.js";
 export {
   SpooError,

@@ -1,4 +1,10 @@
-import { Transport, type Fetch, type Logger, type RequestHooks } from "./core/http.js";
+import {
+  Transport,
+  type Fetch,
+  type Logger,
+  type RequestHooks,
+  type RequestOptions,
+} from "./core/http.js";
 import { Links } from "./resources/links.js";
 import { Stats } from "./resources/stats.js";
 import { PublicLinks } from "./resources/public.js";
@@ -86,7 +92,44 @@ export class Spoo {
     this.oauth = new OAuth(this._transport, baseUrl);
     this.auth = new Auth(this._transport);
   }
+
+  /**
+   * Raw GET against any API path, through the configured transport: auth,
+   * retries, timeout, client tag and error mapping all apply. The pressure
+   * valve for endpoints the SDK does not cover yet; a call site here is a
+   * signal worth filing an issue about.
+   */
+  async get<T>(path: string, query?: QueryParams, opts?: RequestOptions): Promise<T> {
+    return this._transport.request<T>(
+      { method: "GET", path, ...(query !== undefined ? { query } : {}) },
+      opts,
+    );
+  }
+
+  /** Raw POST with a JSON body. See {@link get} for what still applies. */
+  async post<T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> {
+    return this._transport.request<T>(
+      { method: "POST", path, ...(body !== undefined ? { body } : {}) },
+      opts,
+    );
+  }
+
+  /** Raw PATCH with a JSON body. See {@link get} for what still applies. */
+  async patch<T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> {
+    return this._transport.request<T>(
+      { method: "PATCH", path, ...(body !== undefined ? { body } : {}) },
+      opts,
+    );
+  }
+
+  /** Raw DELETE. See {@link get} for what still applies. */
+  async delete<T>(path: string, opts?: RequestOptions): Promise<T> {
+    return this._transport.request<T>({ method: "DELETE", path }, opts);
+  }
 }
+
+/** Query parameters accepted by the raw request methods. */
+export type QueryParams = Record<string, string | number | boolean | undefined>;
 
 function readEnv(name: string): string | undefined {
   const proc = (globalThis as Record<string, unknown>)["process"] as
