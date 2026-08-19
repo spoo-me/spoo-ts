@@ -66,6 +66,18 @@ await spoo.links.setStatus(id, "INACTIVE");
 await spoo.links.delete(id);
 ```
 
+Link ids are typed as `UrlId`, a branded string, so an alias cannot be
+passed where an id belongs (they address different endpoints and the mixup
+otherwise surfaces as a confusing 404 at runtime). Ids returned by the SDK
+carry the type already; for ids you persisted as plain strings, mark them
+with `asUrlId`:
+
+```ts
+import { asUrlId } from "spoo.me";
+
+await spoo.links.delete(asUrlId(storedId));
+```
+
 Bulk operations take up to 100 ids and report per-item results instead of
 throwing, so a partial failure never aborts the batch:
 
@@ -101,6 +113,22 @@ const one = await spoo.stats.getForLink(id, { groupBy: ["referrer"] });
 
 // File exports (csv is a ZIP archive with one CSV per dimension)
 const file = await spoo.stats.export({ groupBy: ["country"] }, "xlsx");
+await writeFile(file.filename, new Uint8Array(await file.data.arrayBuffer()));
+```
+
+`file.filename` is always present and always a bare basename: the
+server-suggested name is sanitized, and a `spoo-export.<ext>` default fills
+in when the server names no usable file. `file.data` is a `Blob`; Node
+consumers who would rather stream than buffer can use `file.data.stream()`,
+which returns a web `ReadableStream` that `Readable.fromWeb` bridges onto
+Node streams:
+
+```ts
+import { Readable } from "node:stream";
+import { createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
+
+await pipeline(Readable.fromWeb(file.data.stream()), createWriteStream(file.filename));
 ```
 
 Public per-link stats need no account:
@@ -179,6 +207,55 @@ await spoo.links.get(id, { maxRetries: 0, signal: controller.signal });
 
 Requests that are not idempotent are only retried when the server provably
 did no work.
+
+## Raw requests
+
+Every covered endpoint has a typed method, but the API can grow faster than
+the SDK. The client's `get`, `post`, `patch` and `delete` methods send a
+request through the same transport, so the configured auth, retries,
+timeout, client tag and error mapping all still apply:
+
+```ts
+const membership = await spoo.get<{ plan: string }>("/api/v1/some/new/endpoint", {
+  verbose: true,
+});
+await spoo.post("/api/v1/some/new/endpoint", { name: "value" });
+```
+
+These are supported and stable, but reaching for one usually means the SDK
+surface has a gap. Please [file an issue](https://github.com/spoo-me/spoo-ts/issues)
+naming the endpoint so it gets a typed method.
+
+## Scope
+
+The SDK covers the third-party integration surface of the API: identity
+read (`auth.me`), Sign in with Spoo, and the full data plane, meaning
+shortening, link management, claims, bulk operations, analytics, file
+exports, public link reads and the emoji alias catalogue.
+
+Deliberately out of scope: API key management, service health, the contact
+form, profile management, and all legacy (v0) routes. Keys are managed in
+the dashboard, health belongs to the status page, and the legacy routes
+exist for backward compatibility, not for new integrations.
+
+## API coverage
+
+| Method | Endpoint |
+| --- | --- |
+| `links.create`, `links.checkAlias` | `POST /api/v1/shorten`, `GET /api/v1/shorten/check-alias` |
+| `links.list` | `GET /api/v1/urls` |
+| `links.get`, `links.getByAddress` | `GET /api/v1/urls/{id}`, `GET /api/v1/urls/{domain}/{alias}` |
+| `links.update`, `links.setStatus` | `PATCH /api/v1/urls/{id}`, `PATCH /api/v1/urls/{id}/status` |
+| `links.delete`, `links.deleteByDomain` | `DELETE /api/v1/urls/{id}`, `DELETE /api/v1/urls?domain=` |
+| `links.claim` | `POST /api/v1/urls/claim` |
+| `links.bulk.delete`, `links.bulk.setStatus`, `links.bulk.setExpiry`, `links.bulk.setDomain` | `POST /api/v1/urls/bulk/*` |
+| `stats.get`, `stats.getForLink` | `GET /api/v1/stats`, `GET /api/v1/stats/links/{id}` |
+| `stats.export`, `stats.exportForLink` | `GET /api/v1/export`, `GET /api/v1/export/links/{id}` |
+| `public.stats`, `public.statsWithPassword` | `GET or POST /api/v1/public/stats/{code}` |
+| `public.preview` | `GET /api/v1/public/preview/{code}` |
+| `emoji.getSet` | `GET /api/v1/emoji-set` (ETag-cached) |
+| `auth.me` | `GET /auth/me` |
+| `oauth.exchangeCode`, `oauth.refreshTokens` | `POST /auth/device/token`, `POST /auth/device/refresh` |
 
 ## Requirements
 
