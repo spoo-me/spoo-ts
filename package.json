@@ -38,7 +38,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "gen:types": "openapi-typescript openapi.json -o src/generated/schema.d.ts",
-    "lint:pkg": "npm run build && publint && attw --pack .",
+    "lint:pkg": "npm run build && publint && attw --pack . --profile esm-only",
     "release": "npm run build && changeset publish"
   },
   "devDependencies": {

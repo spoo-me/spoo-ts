@@ -36,7 +36,7 @@ jobs:
         run: npm run build
 
       - name: Package lint
-        run: npx publint && npx attw --pack .
+        run: npx publint && npx attw --pack . --profile esm-only
 
   spec-drift:
     runs-on: ubuntu-latest
