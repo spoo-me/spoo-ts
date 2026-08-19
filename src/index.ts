@@ -13,6 +13,7 @@ export {
   PayloadTooLargeError,
   ValidationError,
   RateLimitError,
+  SessionExpiredError,
   ContentBlockedError,
   InternalServerError,
   ServiceUnavailableError,
@@ -52,4 +53,12 @@ export {
 } from "./resources/public.js";
 export { Emoji, type EmojiSet, type EmojiEntry } from "./resources/emoji.js";
 export { Misc, type HealthStatus } from "./resources/misc.js";
+export {
+  OAuth,
+  type DeviceTokens,
+  type RefreshedTokens,
+  type AuthorizationUrlParams,
+  type TokenProviderOptions,
+} from "./resources/oauth.js";
+export { generatePkcePair, generateState, type PkcePair } from "./core/pkce.js";
 export type { components as ApiSchema } from "./generated/schema.js";

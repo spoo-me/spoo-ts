@@ -168,6 +168,20 @@ export class ServiceUnavailableError extends APIError {
   override name = "ServiceUnavailableError";
 }
 
+/**
+ * A connected-app session can no longer be refreshed: the refresh token was
+ * rejected (rotated away, grant revoked, or expired). The only recovery is
+ * sending the user through Sign in with Spoo again.
+ */
+export class SessionExpiredError extends SpooError {
+  override name = "SessionExpiredError";
+
+  constructor(options?: { cause?: unknown }) {
+    super("Session expired: the refresh token was rejected. Re-authenticate the user.");
+    if (options?.cause !== undefined) this.cause = options.cause;
+  }
+}
+
 /** The request never produced a response (network failure, DNS, reset). */
 export class APIConnectionError extends SpooError {
   override name = "APIConnectionError";

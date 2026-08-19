@@ -110,6 +110,29 @@ const stats = await spoo.public.stats("alias");
 const preview = await spoo.public.preview("alias");
 ```
 
+## Sign in with Spoo (connected apps)
+
+Building an app that acts on behalf of a spoo.me user? The SDK ships the
+client half of the PKCE flow: pair generation, the consent URL, code
+exchange, and a self-refreshing token provider that handles rotation.
+
+```ts
+const pkce = await generatePkcePair();
+const url = spoo.oauth.authorizationUrl({ appId, redirectUri, state, codeChallenge: pkce.challenge });
+// open `url`, receive ?code=... on your redirect URI
+const tokens = await spoo.oauth.exchangeCode({ code, codeVerifier: pkce.verifier });
+
+const client = new Spoo({
+  token: spoo.oauth.tokenProvider({ tokens, onRefresh: persist }),
+});
+```
+
+Your app drives the browser and stores tokens; the SDK never does either.
+Refresh tokens rotate on every refresh, so persist what `onRefresh` hands
+you. A rejected refresh throws `SessionExpiredError`: send the user back
+through login. App ids and redirect URIs are registered with spoo.me and
+matched exactly. See [`examples/sign-in-with-spoo.ts`](./examples/sign-in-with-spoo.ts).
+
 ## Errors
 
 Failed requests throw a typed subclass of `SpooError`:

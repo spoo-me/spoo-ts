@@ -1,5 +1,14 @@
 # spoo.me
 
+## 0.2.0
+
+### Minor Changes
+
+- Sign in with Spoo for connected apps: spoo.oauth with PKCE pair generation,
+  authorization URL building, code exchange, token refresh with rotation, and a
+  self-refreshing single-flight token provider for `new Spoo({ token })`.
+  Rejected refreshes throw the new SessionExpiredError.
+
 ## 0.1.0
 
 ### Minor Changes

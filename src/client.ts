@@ -4,6 +4,7 @@ import { Stats } from "./resources/stats.js";
 import { PublicLinks } from "./resources/public.js";
 import { Emoji } from "./resources/emoji.js";
 import { Misc } from "./resources/misc.js";
+import { OAuth } from "./resources/oauth.js";
 
 export interface SpooOptions {
   /**
@@ -41,12 +42,16 @@ export class Spoo {
   readonly public: PublicLinks;
   readonly emoji: Emoji;
   readonly misc: Misc;
+  /** Sign in with Spoo, client half: PKCE, code exchange, refreshing tokens. */
+  readonly oauth: OAuth;
 
   /** @internal Transport shared by every resource namespace. */
   readonly _transport: Transport;
 
   constructor(options: SpooOptions = {}) {
     const apiKey = options.apiKey ?? readEnv("SPOO_API_KEY");
+
+    const baseUrl = options.baseUrl ?? "https://spoo.me";
 
     if (apiKey !== undefined && isBrowser() && options.dangerouslyAllowBrowser !== true) {
       throw new Error(
@@ -57,7 +62,7 @@ export class Spoo {
     }
 
     this._transport = new Transport({
-      baseUrl: options.baseUrl ?? "https://spoo.me",
+      baseUrl,
       ...(apiKey !== undefined ? { apiKey } : {}),
       ...(options.token !== undefined ? { token: options.token } : {}),
       ...(options.fetch !== undefined ? { fetch: options.fetch } : {}),
@@ -72,6 +77,7 @@ export class Spoo {
     this.public = new PublicLinks(this._transport);
     this.emoji = new Emoji(this._transport);
     this.misc = new Misc(this._transport);
+    this.oauth = new OAuth(this._transport, baseUrl.replace(/\/+$/, ""));
   }
 }
 
