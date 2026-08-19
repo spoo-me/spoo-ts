@@ -1,5 +1,17 @@
 # spoo.me
 
+## 0.5.0
+
+### Minor Changes
+
+- ba30554: Removes misc.health(). The SDK surface is the third-party integration
+  contract: service health belongs to the status page, not the client.
+  Breaking pre-1.0 removal.
+- 0d3b9d6: What the first-party ports needed: auth.me() (works with API keys and app
+  tokens), an invalidate() handle on tokenProvider for retry-on-401, and
+  authorizationUrl accepting a registered-default redirect (redirectUri now
+  optional).
+
 ## 0.4.0
 
 ### Minor Changes
