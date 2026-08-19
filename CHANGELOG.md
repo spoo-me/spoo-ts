@@ -1,5 +1,13 @@
 # spoo.me
 
+## 0.7.0
+
+### Minor Changes
+
+- Adds stats.exportForLink(): per-link file exports whose filename the server
+  derives from the alias, so exports of different links never collide. The
+  aggregate export keeps its constant filename and now documents it.
+
 ## 0.6.1
 
 ### Patch Changes

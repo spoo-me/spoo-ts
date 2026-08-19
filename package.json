@@ -1,6 +1,6 @@
 {
   "name": "spoo.me",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Official TypeScript SDK for the spoo.me link management API",
   "keywords": [
     "spoo.me",

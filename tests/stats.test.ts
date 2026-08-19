@@ -95,6 +95,24 @@ test("getForLink hits the per-link path with shared params", async () => {
   expect(stats.url_id).toBe(urlId);
 });
 
+test("exportForLink hits the per-link export path", async () => {
+  let url: URL | undefined;
+  const urlId = "0".repeat(24);
+  server.use(
+    http.get(`${BASE}/api/v1/export/links/:id`, ({ request }) => {
+      url = new URL(request.url);
+      return new HttpResponse(new Uint8Array([1]).buffer, {
+        headers: { "Content-Disposition": 'attachment; filename="spoo-launch-stats.zip"' },
+      });
+    }),
+  );
+  const result = await client().stats.exportForLink(urlId, { groupBy: ["time"] }, "csv");
+  expect(url!.pathname).toBe(`/api/v1/export/links/${urlId}`);
+  expect(url!.searchParams.get("format")).toBe("csv");
+  expect(url!.searchParams.get("group_by")).toBe("time");
+  expect(result.filename).toBe("spoo-launch-stats.zip");
+});
+
 test("export returns a Blob and the Content-Disposition filename", async () => {
   let url: URL | undefined;
   server.use(

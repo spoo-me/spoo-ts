@@ -160,10 +160,36 @@ export class Stats {
   }
 
   /**
+   * Download one link's analytics as a file, addressed by its id. Prefer
+   * this over `export` with a urlId filter for single links: the server
+   * names the file after the link's alias, so exports of different links
+   * never collide.
+   */
+  async exportForLink(
+    urlId: string,
+    params: StatsParams,
+    format: StatsExportFormat,
+    opts?: RequestOptions,
+  ): Promise<StatsExport> {
+    const { data, meta } = await this.transport.requestWithMeta<Blob>(
+      {
+        method: "GET",
+        path: `/api/v1/export/links/${encodeURIComponent(urlId)}`,
+        query: { ...buildStatsQuery(params), format },
+        responseAs: "blob",
+      },
+      opts,
+    );
+    const filename = filenameFromDisposition(meta.headers.get("content-disposition"));
+    return { data, ...(filename !== undefined ? { filename } : {}) };
+  }
+
+  /**
    * Download the same analytics as a file. The `csv` format is a ZIP archive
    * (summary.csv plus one CSV per dimension), not a bare CSV. Export
    * generation is resource-intensive, so tighter limits apply: 30/min,
-   * 1,000/day.
+   * 1,000/day. The filename is constant for aggregate exports; use
+   * `exportForLink` for per-link files.
    */
   async export(
     params: AggregateStatsParams,
