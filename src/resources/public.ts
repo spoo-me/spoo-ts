@@ -1,10 +1,18 @@
 import type { components } from "../generated/schema.js";
 import type { Transport, RequestOptions } from "../core/http.js";
+import type { StatsResponse } from "./stats.js";
 import { toWire, type TimestampInput } from "../core/timestamps.js";
 
 type Schemas = components["schemas"];
 
-export type PublicStatsResponse = Schemas["PublicStatsResponse"];
+/**
+ * The public stats envelope. `stats` carries the same wire shape as the
+ * authenticated stats payload (dynamic-keyed metrics dict included).
+ */
+export interface PublicStatsResponse
+  extends Omit<Schemas["PublicStatsResponse"], "stats"> {
+  stats: StatsResponse;
+}
 export type PublicPreviewResponse = Schemas["PublicPreviewResponse"];
 
 export interface PublicStatsOptions {

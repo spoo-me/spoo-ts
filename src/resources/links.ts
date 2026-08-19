@@ -8,6 +8,8 @@ type Schemas = components["schemas"];
 /** A link as returned by the management endpoints, timestamps parsed to Date. */
 export interface Link
   extends Omit<Schemas["UrlListItem"], "created_at" | "last_click" | "expire_after"> {
+  /** Derived client-side from alias + domain; the list payload does not carry it. */
+  short_url?: string;
   created_at?: Date | null | undefined;
   last_click?: Date | null | undefined;
   expire_after?: Date | null | undefined;
@@ -60,9 +62,11 @@ export interface ClaimItem {
 
 export type BulkResult = Schemas["BulkUrlOperationResponse"];
 
-function parseListItem(item: Schemas["UrlListItem"]): Link {
+function parseListItem(item: Schemas["UrlListItem"], baseUrl: string): Link {
+  const origin = item.domain != null ? `https://${item.domain}` : baseUrl;
   return {
     ...item,
+    ...(item.alias != null ? { short_url: `${origin}/${item.alias}` } : {}),
     created_at: item.created_at != null ? fromWire(item.created_at) : item.created_at,
     last_click: item.last_click != null ? fromWire(item.last_click) : item.last_click,
     expire_after:
@@ -73,7 +77,10 @@ function parseListItem(item: Schemas["UrlListItem"]): Link {
 export class Links {
   readonly bulk: LinksBulk;
 
-  constructor(private readonly transport: Transport) {
+  constructor(
+    private readonly transport: Transport,
+    private readonly baseUrl: string,
+  ) {
     this.bulk = new LinksBulk(transport);
   }
 
@@ -138,7 +145,7 @@ export class Links {
         opts,
       );
       return {
-        items: raw.items.map(parseListItem),
+        items: raw.items.map((i) => parseListItem(i, this.baseUrl)),
         total: raw.total,
         hasNext: raw.hasNext,
       };
@@ -153,7 +160,7 @@ export class Links {
       { method: "GET", path: `/api/v1/urls/${encodeURIComponent(urlId)}` },
       opts,
     );
-    return parseListItem(raw);
+    return parseListItem(raw, this.baseUrl);
   }
 
   /**
@@ -169,7 +176,7 @@ export class Links {
       },
       opts,
     );
-    return parseListItem(raw);
+    return parseListItem(raw, this.baseUrl);
   }
 
   async update(

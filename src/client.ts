@@ -57,7 +57,7 @@ export class Spoo {
   constructor(options: SpooOptions = {}) {
     const apiKey = options.apiKey ?? readEnv("SPOO_API_KEY");
 
-    const baseUrl = options.baseUrl ?? "https://spoo.me";
+    const baseUrl = (options.baseUrl ?? "https://spoo.me").replace(/\/+$/, "");
 
     if (apiKey !== undefined && isBrowser() && options.dangerouslyAllowBrowser !== true) {
       throw new Error(
@@ -79,11 +79,11 @@ export class Spoo {
       ...(options.clientTag !== undefined ? { clientTag: options.clientTag } : {}),
     });
 
-    this.links = new Links(this._transport);
+    this.links = new Links(this._transport, baseUrl);
     this.stats = new Stats(this._transport);
     this.public = new PublicLinks(this._transport);
     this.emoji = new Emoji(this._transport);
-    this.oauth = new OAuth(this._transport, baseUrl.replace(/\/+$/, ""));
+    this.oauth = new OAuth(this._transport, baseUrl);
     this.auth = new Auth(this._transport);
   }
 }

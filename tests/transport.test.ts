@@ -139,8 +139,19 @@ test("for await auto-paginates across pages", async () => {
     http.get(`${BASE}/api/v1/urls`, ({ request }) => {
       const page = Number(new URL(request.url).searchParams.get("page") ?? "1");
       const items = [
-        { id: `id-${page}-a`, password_set: false, created_at: "2026-01-01T00:00:00+00:00" },
-        { id: `id-${page}-b`, password_set: false, created_at: "2026-01-02T00:00:00+00:00" },
+        {
+          id: `id-${page}-a`,
+          alias: `a${page}`,
+          password_set: false,
+          created_at: "2026-01-01T00:00:00+00:00",
+        },
+        {
+          id: `id-${page}-b`,
+          alias: `b${page}`,
+          domain: "go.example.com",
+          password_set: false,
+          created_at: "2026-01-02T00:00:00+00:00",
+        },
       ];
       return HttpResponse.json({
         items,
@@ -154,11 +165,16 @@ test("for await auto-paginates across pages", async () => {
     }),
   );
   const ids: string[] = [];
+  const shortUrls: (string | undefined)[] = [];
   for await (const link of await client().links.list({ pageSize: 2 })) {
     expect(link.created_at).toBeInstanceOf(Date);
     ids.push(link.id);
+    shortUrls.push(link.short_url);
   }
   expect(ids).toEqual(["id-1-a", "id-1-b", "id-2-a", "id-2-b"]);
+  // short_url is derived: base URL for the default namespace, https + domain otherwise
+  expect(shortUrls[0]).toBe(`${BASE}/a1`);
+  expect(shortUrls[1]).toBe("https://go.example.com/b1");
 });
 
 test("claim maps camelCase inputs onto the wire shape", async () => {

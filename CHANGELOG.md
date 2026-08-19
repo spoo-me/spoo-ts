@@ -1,5 +1,14 @@
 # spoo.me
 
+## 0.6.0
+
+### Minor Changes
+
+- Refinements from porting the first-party apps: Link gains a client-derived
+  short_url (base URL or custom domain plus alias), the public stats payload
+  is fully typed instead of an unknown map, and decodeJwtPayload is exported
+  for apps that schedule their own refresh.
+
 ## 0.5.0
 
 ### Minor Changes
