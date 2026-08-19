@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (src, tests, examples)
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Package lint
+        run: npx publint && npx attw --pack .
+
+  spec-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Diff committed spec against the backend's
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/spoo-me/spoo/main/openapi.json -o upstream-openapi.json
+          diff -q upstream-openapi.json openapi.json || {
+            echo "::error::openapi.json is behind spoo-me/spoo main. Copy the upstream file and run npm run gen:types."
+            exit 1
+          }
+
+      - name: Verify generated types are current
+        run: |
+          npm run gen:types
+          git diff --exit-code src/generated/schema.d.ts || {
+            echo "::error::src/generated/schema.d.ts is stale. Run npm run gen:types and commit the result."
+            exit 1
+          }

@@ -12,7 +12,7 @@
   "homepage": "https://spoo.me",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/spoo-me/sdk-ts.git"
+    "url": "git+https://github.com/spoo-me/spoo-ts.git"
   },
   "license": "AGPL-3.0-only",
   "type": "module",

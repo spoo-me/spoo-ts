@@ -78,9 +78,10 @@ export class Links {
   }
 
   /**
-   * Shorten a URL. Works unauthenticated; `domain`, `geo_rules` and
-   * `meta_tags` require an authenticated, email-verified caller. Anonymous
-   * calls return a one-time `claim_token` for later account claiming.
+   * Shorten a URL. Works unauthenticated; anonymous calls return a one-time
+   * `claim_token` for later account claiming. `domain`, `geo_rules` and
+   * `meta_tags` require a verified account with the matching feature
+   * enabled, and fail as `feature_disabled` otherwise.
    */
   async create(params: CreateLinkParams, opts?: RequestOptions): Promise<CreatedLink> {
     const body = {
