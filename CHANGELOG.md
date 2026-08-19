@@ -1,5 +1,15 @@
 # spoo.me
 
+## 0.8.0
+
+### Minor Changes
+
+- Hardening from the cross-SDK audit: non-JSON error bodies (proxy 502 pages)
+  no longer become the error message (terse HTTP status instead, raw text on
+  details); Page.getNextPage() throws a SpooError; Logger and RequestHooks are
+  exported; the unreachable BadRequestError class is removed (400 maps to
+  ValidationError by design).
+
 ## 0.7.0
 
 ### Minor Changes
@@ -40,10 +50,14 @@
 
 ## 0.4.0
 
+Correction (2026-08-19): an earlier draft of these notes listed keys.list and
+keys.delete; key management never shipped in 0.4.0 and is out of the SDK's
+scope.
+
 ### Minor Changes
 
 - What the first-party ports needed: auth.me() (works with API keys and app
-  tokens), keys.list/delete (session or keys:manage tokens), an invalidate()
+  tokens), an invalidate()
   handle on tokenProvider for retry-on-401, and authorizationUrl accepting a
   registered-default redirect (redirectUri now optional).
 

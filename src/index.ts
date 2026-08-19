@@ -4,7 +4,6 @@ export {
   APIError,
   APIConnectionError,
   APITimeoutError,
-  BadRequestError,
   AuthenticationError,
   ForbiddenError,
   NotFoundError,
@@ -22,7 +21,13 @@ export {
   type RateLimitInfo,
 } from "./core/errors.js";
 export { Page } from "./core/page.js";
-export { SDK_VERSION, type RequestOptions, type ResponseMeta } from "./core/http.js";
+export {
+  SDK_VERSION,
+  type RequestOptions,
+  type ResponseMeta,
+  type Logger,
+  type RequestHooks,
+} from "./core/http.js";
 export type { TimestampInput } from "./core/timestamps.js";
 export {
   Links,

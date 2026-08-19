@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { NotFoundError, RateLimitError, Spoo } from "../src/index.js";
+import { InternalServerError, NotFoundError, RateLimitError, Spoo } from "../src/index.js";
 
 const BASE = "https://spoo.test";
 const server = setupServer();
@@ -81,6 +81,24 @@ test("exhausted retries surface RateLimitError with parsed rate-limit state", as
     retryAfter: 0,
   });
   expect(rateLimited.hint).toBe("authenticate");
+});
+
+test("non-JSON error bodies never leak into the message", async () => {
+  server.use(
+    http.get(`${BASE}/api/v1/urls/:id`, () =>
+      new HttpResponse("<!DOCTYPE html><html>bad gateway page</html>", {
+        status: 502,
+        headers: { "Content-Type": "text/html" },
+      }),
+    ),
+  );
+  const err = await client({ maxRetries: 0 })
+    .links.get("0".repeat(24))
+    .catch((e: unknown) => e);
+  const apiErr = err as InternalServerError;
+  expect(apiErr.message).toBe("502 http_502: HTTP 502");
+  expect(apiErr.body.error).toBe("HTTP 502");
+  expect(apiErr.details).toContain("<!DOCTYPE html>");
 });
 
 test("does not retry a POST on 500", async () => {

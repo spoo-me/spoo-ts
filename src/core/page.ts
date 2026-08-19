@@ -1,3 +1,5 @@
+import { SpooError } from "./errors.js";
+
 /**
  * Unified pagination over the API's mixed conventions.
  *
@@ -39,7 +41,7 @@ export class Page<T> implements AsyncIterable<T> {
 
   async getNextPage(): Promise<Page<T>> {
     if (!this.hasNext) {
-      throw new Error("No next page. Check hasNextPage() before calling.");
+      throw new SpooError("No next page. Check hasNextPage() before calling.");
     }
     const next = this.page + 1;
     return new Page(await this.fetcher(next), next, this.fetcher);

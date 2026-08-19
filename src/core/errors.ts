@@ -106,10 +106,6 @@ export class APIError extends SpooError {
   }
 }
 
-export class BadRequestError extends APIError {
-  override name = "BadRequestError";
-}
-
 export class AuthenticationError extends APIError {
   override name = "AuthenticationError";
 }
@@ -260,10 +256,13 @@ function normalizeErrorBody(
   ) {
     return raw as unknown as SpooErrorBody;
   }
-  // Non-JSON or unexpected shape (edge-composed bodies, proxies). Fall back
-  // to the header slug when present so the code survives even without a body.
+  // Non-JSON or unexpected shape (edge-composed bodies, proxies). The message
+  // stays terse — a proxy 502 body is an HTML page nobody wants in a toast —
+  // and the raw text lives on details for anyone who needs it. The header
+  // slug keeps the code usable even without a JSON body.
   return {
-    error: typeof raw === "string" && raw.length > 0 ? raw : `HTTP ${status}`,
+    error: `HTTP ${status}`,
     code: headers.get("x-error-code") ?? `http_${status}`,
+    ...(typeof raw === "string" && raw.length > 0 ? { details: raw } : {}),
   };
 }
