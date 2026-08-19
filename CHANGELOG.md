@@ -1,5 +1,13 @@
 # spoo.me
 
+## 0.3.0
+
+### Minor Changes
+
+- clientTag client option: first-party apps built on the SDK set their own
+  X-Spoo-Client identity (e.g. raycast/3.0.0) so traffic attributes to the
+  product rather than the SDK default.
+
 ## 0.2.0
 
 ### Minor Changes
