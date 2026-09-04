@@ -154,6 +154,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Account
+         * @description Cancel a pending account deletion during the grace period.
+         *
+         *     Two mutually exclusive proofs: ``email`` + ``password`` validates the
+         *     account credentials, ``restore_token`` consumes the one-shot link from
+         *     the deletion notice email (the only path for OAuth-only accounts).
+         *     Either flips the account back to ACTIVE, clears the purge deadline,
+         *     and sends a cancellation notice to the account address. Only works
+         *     while the account is PENDING_DELETION. The hard boundary is the
+         *     erasure sweep claiming the account (typically within minutes of the
+         *     ``purge_after`` deadline from ``DELETE /api/v1/me``), so a restore in
+         *     the window between the deadline and the claim still succeeds; once
+         *     erasure has started, restore is refused for good.
+         *
+         *     **Authentication**: Not required (public endpoint)
+         *
+         *     **Rate Limits**: 3/hour
+         *
+         *     **Security**: Returns a uniform 403 for wrong credentials, unknown
+         *     email, invalid or spent tokens, and accounts not pending deletion —
+         *     prevents account enumeration and state probing.
+         */
+        post: operations["restoreAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/me": {
         parameters: {
             query?: never;
@@ -763,7 +802,7 @@ export interface paths {
          *
          *     **Filtering**: Pass a JSON-encoded `filter` parameter with fields like
          *     `status`, `createdAfter`, `createdBefore`, `passwordSet`, `maxClicksSet`,
-         *     and `search`.
+         *     `search`, `tagIds`, `tagNames` and `tagsMatch`.
          */
         get: operations["listUrls"];
         put?: never;
@@ -823,9 +862,10 @@ export interface paths {
          * Delete URL
          * @description Delete a URL permanently.
          *
-         *     **This action is IRREVERSIBLE.** The URL, its alias, and all associated
-         *     click analytics data will be permanently deleted. The alias may be reclaimed
-         *     by another user afterward.
+         *     **This action is IRREVERSIBLE.** The URL and its alias are permanently
+         *     deleted, and the alias may be reclaimed by another user afterward.
+         *     Historical click analytics are not removed; they are erased when the
+         *     owning account is deleted.
          *
          *     **Authentication**: Required — you must own the URL.
          *
@@ -1051,6 +1091,113 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/urls/bulk/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Tag URLs
+         * @description Add and remove tags (by tag id) on up to 100 URLs you own in one request.
+         *
+         *     Per item the result is the link's current tags minus `remove`, plus
+         *     `add` (kept once, order preserved). A link that already reads that
+         *     way is a success no-op. Every id in `add` must be one of your tags
+         *     (`GET /tags`); an unknown one rejects the whole request before any
+         *     item is touched.
+         *
+         *     **Per-item verdicts** (`error_code`): `not_found` — no such URL in
+         *     your account; `forbidden` — the URL is admin-blocked;
+         *     `validation_error` — the result would exceed 10 tags on that link.
+         *
+         *     **Retry semantics**: re-sending the batch is safe — items already
+         *     carrying the result report success no-ops.
+         *
+         *     **Rate Limits**: 60/min, 200/day — counted per request, not per id.
+         */
+        post: operations["bulkTagUrls"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Your Tags
+         * @description Every tag in your account with the number of links carrying it,
+         *     oldest first.
+         *
+         *     **API Key Scope**: `urls:manage`, `urls:read`, or `admin:all`
+         *
+         *     **Rate Limits**: 60/min, 5,000/day
+         */
+        get: operations["listTags"];
+        put?: never;
+        /**
+         * Create a Tag
+         * @description Create a tag. Names are lowercased and trimmed; a name you already
+         *     have answers `409 conflict`. Omit `color` to get the least-used palette
+         *     colour in your account; omit `icon` for the generic tag glyph. At most
+         *     500 tags per account.
+         *
+         *     **API Key Scope**: `urls:manage` or `admin:all`
+         *
+         *     **Rate Limits**: 30/min
+         */
+        post: operations["createTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tags/{tag_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a Tag
+         * @description Delete the tag and remove it from every link that carried it. The
+         *     links themselves are untouched otherwise.
+         *
+         *     **API Key Scope**: `urls:manage` or `admin:all`
+         *
+         *     **Rate Limits**: 10/min. Deleting fans out an update over every link
+         *     you own, so it carries the same budget as bulk delete.
+         */
+        delete: operations["deleteTag"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename or Recolour a Tag
+         * @description Change the name, colour or icon. Links keep pointing at the tag
+         *     by id, so a rename shows up everywhere at once. Renaming onto a name you
+         *     already have answers `409 conflict`.
+         *
+         *     **API Key Scope**: `urls:manage` or `admin:all`
+         *
+         *     **Rate Limits**: 30/min
+         */
+        patch: operations["updateTag"];
         trace?: never;
     };
     "/api/v1/urls/claim": {
@@ -1661,22 +1808,123 @@ export interface paths {
          * @description Fetch a destination page and return its existing meta tags.
          *
          *     Use this to prefill ``meta_tags`` before customizing a link's social
-         *     preview. Returns normalized best-pick fields (og → twitter → html
-         *     fallbacks) plus the raw ``og``/``twitter`` tag families.
+         *     preview, or to check how a page will unfurl. Returns normalized
+         *     best-pick fields (og → twitter → html fallbacks) plus the raw
+         *     ``og``/``twitter`` tag families.
          *
-         *     **Authentication**: Required. **API Key Scope**: `urls:read`,
-         *     `urls:manage`, or `admin:all`.
+         *     **Authentication**: Optional. Authenticated callers get the higher
+         *     per-account limit; anonymous calls are limited per IP. **API Key
+         *     Scope** (when authenticating): `urls:read`, `urls:manage`, or
+         *     `admin:all`.
          *
-         *     **Feature gate**: `custom_meta_tags` must be enabled for the calling
-         *     account — this endpoint only exists to feed that feature.
-         *
-         *     **Rate Limits**: 20/min, 500/day — results are cached ~1h server-side,
-         *     so repeat calls for the same URL are cheap and don't refetch.
+         *     **Rate Limits**: 60/min, 2,000/day authenticated; 15/min, 300/day
+         *     anonymous — results are cached ~1h server-side, so repeat calls for
+         *     the same URL are cheap and don't refetch.
          */
         get: operations["getUrlMetadata"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/expand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Expand a Short Link
+         * @description Follow a URL's redirect chain and return every hop in order.
+         *
+         *     Works on links from any shortener. Bodies are never fetched — only
+         *     each hop's status and Location header — and results are cached ~1h
+         *     server-side, so repeat calls for the same URL don't refetch.
+         *
+         *     **Authentication**: None required. Authenticated callers get the
+         *     higher per-account rate limit; anonymous calls are limited per IP.
+         *
+         *     **Rate Limits**: 60/min, 2,000/day authenticated; 15/min, 300/day
+         *     anonymous.
+         */
+        get: operations["expandUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/domain-intel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Domain Records
+         * @description DNS records, registration data, and TLS certificate of a host.
+         *
+         *     Registration comes from the registry's own RDAP server; ``age_days``
+         *     is the strongest quick signal (freshly registered domains are the
+         *     phishing tell). Results are cached ~24h server-side.
+         *
+         *     **Authentication**: None required. Authenticated callers get the
+         *     higher per-account rate limit; anonymous calls are limited per IP.
+         *
+         *     **Rate Limits**: 60/min, 2,000/day authenticated; 15/min, 300/day
+         *     anonymous.
+         */
+        get: operations["getDomainIntel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Account
+         * @description Request permanent account deletion (GDPR Art. 17).
+         *
+         *     Re-authentication is required: accounts with a password send
+         *     ``password``; OAuth-only accounts confirm by typing their exact
+         *     account email as ``confirm_email``. On success the account enters a
+         *     grace period (7 days by default) and `purge_after` marks its end —
+         *     after that instant a background sweep permanently erases the account,
+         *     its links, and their analytics.
+         *
+         *     During the grace period every login is blocked with error code
+         *     ``ACCOUNT_PENDING_DELETION``; ``POST /auth/restore`` cancels the
+         *     deletion and reactivates the account — with email + password, or with
+         *     the one-shot link mailed on this request (the OAuth-only path).
+         *
+         *     **Authentication**: Required (JWT only — API keys and app tokens
+         *     cannot delete the account)
+         *
+         *     **Rate Limits**: 3/hour
+         *
+         *     **Errors**: 403 when re-authentication fails (never says which field
+         *     was wrong), 409 when deletion is already pending.
+         */
+        delete: operations["deleteMyAccount"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2087,6 +2335,18 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AccountDeletionResponse
+         * @description Deletion accepted — the account is now pending erasure.
+         */
+        AccountDeletionResponse: {
+            /**
+             * Purge After
+             * @description When the grace period ends and the erasure sweep may pick the account up. Restoring before this instant cancels the deletion.
+             * @example 2026-08-26T00:00:00+00:00
+             */
+            purge_after: string;
+        };
+        /**
          * AliasCheckResponse
          * @description Response body for GET /api/v1/shorten/check-alias.
          *
@@ -2472,6 +2732,40 @@ export interface components {
             failed: number;
         };
         /**
+         * BulkTagUrlsRequest
+         * @description Request body for bulk tag / untag, by tag id.
+         *
+         *     At least one of ``add`` or ``remove`` must name a tag, and no tag may be
+         *     in both.
+         */
+        BulkTagUrlsRequest: {
+            /**
+             * Ids
+             * @description URL ids (MongoDB ObjectIds, as returned by the list endpoint). 1 to 100 per request; duplicates are deduplicated server-side (first occurrence wins). One malformed id rejects the whole request — nothing is attempted.
+             * @example [
+             *       "665f0c2f9e7a4b1d2c3d4e5f",
+             *       "665f0c2f9e7a4b1d2c3d4e60"
+             *     ]
+             */
+            ids: string[];
+            /**
+             * Add
+             * @description Tag ids to add to every id (at most 10); every one must be a tag you own. Tags a link already carries are kept once.
+             * @example [
+             *       "665f0c2f9e7a4b1d2c3d4e5f"
+             *     ]
+             */
+            add?: string[];
+            /**
+             * Remove
+             * @description Tag ids to remove from every id. Tags a link does not carry are ignored.
+             * @example [
+             *       "665f0c2f9e7a4b1d2c3d4e60"
+             *     ]
+             */
+            remove?: string[];
+        };
+        /**
          * BulkUpdateExpiryRequest
          * @description Request body for bulk set/clear expiry.
          */
@@ -2565,6 +2859,18 @@ export interface components {
              * @description Human-readable failure message; null when ok.
              */
             error?: string | null;
+        };
+        /** ChainHop */
+        ChainHop: {
+            /** Url */
+            url: string;
+            /**
+             * Status
+             * @description HTTP status; null when the hop never answered.
+             */
+            status?: number | null;
+            /** Https */
+            https: boolean;
         };
         /**
          * ClaimItemRequest
@@ -2751,6 +3057,26 @@ export interface components {
              */
             captcha_token?: string | null;
         };
+        /** CreateTagRequest */
+        CreateTagRequest: {
+            /**
+             * Name
+             * @description Tag name, at most 32 characters. Lowercased and trimmed on write; letters, digits, spaces, `-`, `_` and `.` only. Unique per account.
+             * @example launch
+             */
+            name: string;
+            /**
+             * @description One of the palette keys. Omit on create to get the least-used colour in your account.
+             * @example violet
+             */
+            color?: components["schemas"]["TagColor"] | null;
+            /**
+             * @description Icon key from the curated set (lucide names). Defaults to `tag`.
+             * @default tag
+             * @example rocket
+             */
+            icon: components["schemas"]["TagIcon"];
+        };
         /**
          * CreateUrlRequest
          * @description Request body for creating a new shortened URL.
@@ -2824,6 +3150,14 @@ export interface components {
             geo_rules?: {
                 [key: string]: string;
             } | null;
+            /**
+             * Tag Ids
+             * @description Ids of tags from `GET /api/v1/tags`, at most 10 per link. Every id must be one of your tags (400 otherwise). On PATCH the list replaces the stored one; `null` or `[]` clears it.
+             * @example [
+             *       "665f0c2f9e7a4b1d2c3d4e5f"
+             *     ]
+             */
+            tag_ids?: string[] | null;
             /** @description Custom social preview served to link-preview crawlers (WhatsApp, Discord, Slack, iMessage, …). The object replaces the whole setting; on PATCH pass null to remove. Requires a verified account with the feature enabled. Note: platforms cache previews for ~7-30 days — edits propagate slowly (the Facebook Sharing Debugger, LinkedIn Post Inspector, and Telegram's @WebpageBot force a refresh). */
             meta_tags?: components["schemas"]["MetaTagsRequest"] | null;
         };
@@ -2949,6 +3283,29 @@ export interface components {
              * @description Override body served at /robots.txt. Honored only when status=ACTIVE.
              */
             custom_robots_txt?: string | null;
+        };
+        /**
+         * DeleteAccountRequest
+         * @description Request body for DELETE /api/v1/me.
+         *
+         *     Exactly one re-auth proof applies per account: ``password`` for
+         *     accounts with a password set, ``confirm_email`` (the exact account
+         *     email, typed) for OAuth-only accounts. The wrong proof — or a missing
+         *     one — fails re-authentication; the response never says which.
+         */
+        DeleteAccountRequest: {
+            /**
+             * Password
+             * @description Account password — re-auth for accounts with a password set
+             * @example MySecurePass123!
+             */
+            password?: string | null;
+            /**
+             * Confirm Email
+             * @description The exact account email, typed to confirm — re-auth for OAuth-only accounts (no password set)
+             * @example user@example.com
+             */
+            confirm_email?: string | null;
         };
         /**
          * DeleteUrlResponse
@@ -3086,11 +3443,66 @@ export interface components {
             purpose?: string | null;
         };
         /**
+         * DomainIntelResponse
+         * @description Public records of a destination host: DNS, RDAP registration, TLS.
+         *
+         *     ``whois``/``ssl`` are null when the registry or handshake doesn't
+         *     answer — absence of data, never a verdict.
+         */
+        DomainIntelResponse: {
+            /** Host */
+            host: string;
+            /** Registrable Domain */
+            registrable_domain: string;
+            /** Dns */
+            dns: {
+                [key: string]: string[];
+            };
+            whois?: components["schemas"]["DomainWhois"] | null;
+            ssl?: components["schemas"]["DomainSsl"] | null;
+            /**
+             * Fetched At
+             * Format: date-time
+             */
+            fetched_at: string;
+        };
+        /** DomainSsl */
+        DomainSsl: {
+            /** Issuer */
+            issuer?: string | null;
+            /** Subject */
+            subject?: string | null;
+            /** Valid From */
+            valid_from?: string | null;
+            /** Valid To */
+            valid_to?: string | null;
+            /** Days Left */
+            days_left?: number | null;
+            /** Sans */
+            sans?: string[];
+        };
+        /**
          * DomainStatus
          * @description Lifecycle state of a custom domain registration.
          * @enum {string}
          */
         DomainStatus: "pending" | "verifying" | "active" | "suspended" | "revoked";
+        /** DomainWhois */
+        DomainWhois: {
+            /** Registrar */
+            registrar?: string | null;
+            /** Created */
+            created?: string | null;
+            /** Updated */
+            updated?: string | null;
+            /** Expires */
+            expires?: string | null;
+            /**
+             * Age Days
+             * @description Days since registration; young = suspect.
+             */
+            age_days?: number | null;
+        };
         /**
          * EmojiEntry
          * @description One accepted emoji, enriched for client-side search.
@@ -3189,6 +3601,40 @@ export interface components {
         EventTypesResponse: {
             /** Event Types */
             event_types: components["schemas"]["EventTypeInfoResponse"][];
+        };
+        /**
+         * ExpandResponse
+         * @description A URL's redirect chain, every hop listed in order.
+         *
+         *     ``blocklist_match`` is the only safety claim: whether any hop matches
+         *     the abuse blocklist spoo.me enforces at link creation.
+         */
+        ExpandResponse: {
+            /**
+             * Url
+             * @description The URL that was requested.
+             */
+            url: string;
+            /** Final Url */
+            final_url: string;
+            /** Final Status */
+            final_status?: number | null;
+            /**
+             * Truncated
+             * @description Chain stopped at the redirect cap.
+             */
+            truncated: boolean;
+            /** Hops */
+            hops: components["schemas"]["ChainHop"][];
+            /** Blocklist Match */
+            blocklist_match: boolean;
+            /** @description Google Web Risk verdict for the final URL; null when the check didn't run. */
+            web_risk?: components["schemas"]["WebRiskVerdict"] | null;
+            /**
+             * Fetched At
+             * Format: date-time
+             */
+            fetched_at: string;
         };
         /**
          * FeatureState
@@ -3460,6 +3906,21 @@ export interface components {
             color?: string | null;
             /** Site Name */
             site_name?: string | null;
+            /**
+             * Html Title
+             * @description Raw <title> text, before og/twitter fallbacks.
+             */
+            html_title?: string | null;
+            /**
+             * Html Description
+             * @description Plain <meta name=description>, unnormalized.
+             */
+            html_description?: string | null;
+            /**
+             * Favicon
+             * @description Best declared icon (or /favicon.ico); absolute https URL.
+             */
+            favicon?: string | null;
             /** Og */
             og?: {
                 [key: string]: string;
@@ -3922,6 +4383,34 @@ export interface components {
             password: string;
         };
         /**
+         * RestoreAccountRequest
+         * @description Request body for POST /auth/restore.
+         *
+         *     Exactly one restore proof: ``email`` + ``password`` for accounts with
+         *     a password, or ``restore_token`` (the one-shot token from the
+         *     deletion notice email — the only path for OAuth-only accounts).
+         *     Mixing or omitting both is a validation error, not a 403.
+         */
+        RestoreAccountRequest: {
+            /**
+             * Email
+             * @description Account email address (credential restore)
+             * @example user@example.com
+             */
+            email?: string | null;
+            /**
+             * Password
+             * @description Account password (credential restore)
+             * @example MySecurePass123!
+             */
+            password?: string | null;
+            /**
+             * Restore Token
+             * @description One-shot restore token from the deletion notice email (token restore — OAuth-only accounts)
+             */
+            restore_token?: string | null;
+        };
+        /**
          * SendVerificationResponse
          * @description Response body for POST /auth/send-verification (200).
          */
@@ -4036,6 +4525,85 @@ export interface components {
             /** End Date */
             end_date?: string | null;
         };
+        /**
+         * TagColor
+         * @description Fixed palette; the dashboard maps each key to a muted dot colour.
+         * @enum {string}
+         */
+        TagColor: "gray" | "red" | "orange" | "amber" | "green" | "teal" | "blue" | "violet" | "pink";
+        /** TagDeleteResponse */
+        TagDeleteResponse: {
+            /**
+             * Deleted
+             * @default true
+             */
+            deleted: boolean;
+            /**
+             * Links Updated
+             * @description Links the tag was removed from.
+             */
+            links_updated: number;
+        };
+        /**
+         * TagIcon
+         * @enum {string}
+         */
+        TagIcon: "banknote" | "bar-chart-3" | "beaker" | "bell" | "bird" | "book" | "bookmark" | "box" | "briefcase" | "bug" | "building" | "calendar" | "camera" | "car" | "cat" | "clock" | "cloud" | "code" | "coffee" | "compass" | "credit-card" | "crown" | "dog" | "file-text" | "fish" | "flag" | "flame" | "flask-conical" | "folder" | "gamepad-2" | "gem" | "ghost" | "gift" | "globe" | "graduation-cap" | "handshake" | "hash" | "heart" | "home" | "hourglass" | "image" | "key" | "layers" | "leaf" | "lightbulb" | "link" | "lock" | "mail" | "map-pin" | "megaphone" | "message-square" | "mic" | "moon" | "music" | "newspaper" | "package" | "pen-line" | "phone" | "pie-chart" | "pizza" | "plane" | "puzzle" | "receipt" | "rocket" | "send" | "settings" | "share-2" | "shield" | "shopping-cart" | "smile" | "sparkles" | "star" | "store" | "sun" | "tag" | "target" | "terminal" | "timer" | "trending-up" | "trophy" | "umbrella" | "user" | "users" | "video" | "wallet" | "wrench" | "zap";
+        /** TagListResponse */
+        TagListResponse: {
+            /** Items */
+            items: components["schemas"]["TagResponse"][];
+        };
+        /**
+         * TagRef
+         * @description A tag as it appears on a link: enough to render, no counts.
+         */
+        TagRef: {
+            /**
+             * Id
+             * @example 665f0c2f9e7a4b1d2c3d4e5f
+             */
+            id: string;
+            /**
+             * Name
+             * @example launch
+             */
+            name: string;
+            /** @example violet */
+            color: components["schemas"]["TagColor"];
+            /** @example rocket */
+            icon: components["schemas"]["TagIcon"];
+        };
+        /**
+         * TagResponse
+         * @description A tag on its own endpoints, with its link count.
+         */
+        TagResponse: {
+            /**
+             * Id
+             * @example 665f0c2f9e7a4b1d2c3d4e5f
+             */
+            id: string;
+            /**
+             * Name
+             * @example launch
+             */
+            name: string;
+            /** @example violet */
+            color: components["schemas"]["TagColor"];
+            /** @example rocket */
+            icon: components["schemas"]["TagIcon"];
+            /**
+             * Link Count
+             * @description Links carrying the tag.
+             * @example 14
+             */
+            link_count: number;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
         /** TestWebhookRequest */
         TestWebhookRequest: {
             /**
@@ -4104,6 +4672,24 @@ export interface components {
              * @example Jane Doe
              */
             user_name: string | null;
+        };
+        /**
+         * UpdateTagRequest
+         * @description Rename, recolour or change the icon. Omitted fields are left as they are.
+         */
+        UpdateTagRequest: {
+            /**
+             * Name
+             * @description Tag name, at most 32 characters. Lowercased and trimmed on write; letters, digits, spaces, `-`, `_` and `.` only. Unique per account.
+             */
+            name?: string | null;
+            /** @description One of the palette keys. Omit on create to get the least-used colour in your account. */
+            color?: components["schemas"]["TagColor"] | null;
+            /**
+             * Icon
+             * @description Icon key from the curated set (lucide names). Defaults to `tag`.
+             */
+            icon?: components["schemas"]["TagIcon"];
         };
         /**
          * UpdateUrlRequest
@@ -4179,6 +4765,14 @@ export interface components {
             geo_rules?: {
                 [key: string]: string;
             } | null;
+            /**
+             * Tag Ids
+             * @description Ids of tags from `GET /api/v1/tags`, at most 10 per link. Every id must be one of your tags (400 otherwise). On PATCH the list replaces the stored one; `null` or `[]` clears it.
+             * @example [
+             *       "665f0c2f9e7a4b1d2c3d4e5f"
+             *     ]
+             */
+            tag_ids?: string[] | null;
             /** @description Custom social preview served to link-preview crawlers (WhatsApp, Discord, Slack, iMessage, …). The object replaces the whole setting; on PATCH pass null to remove. Requires a verified account with the feature enabled. Note: platforms cache previews for ~7-30 days — edits propagate slowly (the Facebook Sharing Debugger, LinkedIn Post Inspector, and Telegram's @WebpageBot force a refresh). */
             meta_tags?: components["schemas"]["MetaTagsRequest"] | null;
         };
@@ -4253,6 +4847,11 @@ export interface components {
             geo_rules?: {
                 [key: string]: string;
             } | null;
+            /**
+             * Tags
+             * @description The link's tags (id, name, colour), in the link's order.
+             */
+            tags?: components["schemas"]["TagRef"][];
             /**
              * Updated At
              * @description Last update time as Unix timestamp.
@@ -4341,6 +4940,8 @@ export interface components {
             geo_rules?: {
                 [key: string]: string;
             } | null;
+            /** Tags */
+            tags?: components["schemas"]["TagRef"][];
             meta_tags?: components["schemas"]["MetaTagsResponse"] | null;
         };
         /**
@@ -4431,6 +5032,11 @@ export interface components {
             geo_rules?: {
                 [key: string]: string;
             } | null;
+            /**
+             * Tags
+             * @description The link's tags (id, name, colour), in the link's order.
+             */
+            tags?: components["schemas"]["TagRef"][];
             /** @description Custom social preview, if configured. */
             meta_tags?: components["schemas"]["MetaTagsResponse"] | null;
             /**
@@ -4569,6 +5175,13 @@ export interface components {
              * @description Updated email verification status (always true on success)
              */
             email_verified: boolean;
+        };
+        /** WebRiskVerdict */
+        WebRiskVerdict: {
+            /** Checked */
+            checked: boolean;
+            /** Threats */
+            threats?: string[];
         };
         /** WebhookDeliveryResponse */
         WebhookDeliveryResponse: {
@@ -4978,6 +5591,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LogoutResponse"];
+                };
+            };
+        };
+    };
+    restoreAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — invalid credentials, unknown email or token, or account is not pending deletion */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6465,6 +7156,9 @@ export interface operations {
                  *     - **passwordSet** — Filter by password protection (boolean: `true`/`false`)
                  *     - **maxClicksSet** — Filter by click limit presence (boolean: `true`/`false`)
                  *     - **search** — Search in alias or long_url (case-insensitive string)
+                 *     - **tagIds** — Only links carrying these tags, by id (array of strings)
+                 *     - **tagNames** — Same, by tag name; unknown names match nothing
+                 *     - **tagsMatch** — `"any"` (default) or `"all"`; how multiple tags combine
                  *
                  *     **Value formats:**
                  *
@@ -6472,6 +7166,8 @@ export interface operations {
                  *     - **createdAfter / createdBefore**: ISO 8601 datetime string (e.g., `"2024-01-01T00:00:00Z"`) or Unix timestamp (e.g., `1704067200`)
                  *     - **passwordSet / maxClicksSet**: Boolean — `true` or `false`
                  *     - **search**: String — case-insensitive search term
+                 *     - **tagIds / tagNames**: Array of strings
+                 *     - **tagsMatch**: String — `"any"` or `"all"`
                  *
                  *     **Examples:**
                  *
@@ -6480,6 +7176,7 @@ export interface operations {
                  *     - `{"createdAfter": "2024-01-01T00:00:00Z"}` — URLs created after Jan 1, 2024
                  *     - `{"status": "ACTIVE", "maxClicksSet": true}` — Active URLs with click limits
                  *     - `{"search": "example"}` — URLs containing "example" in alias or long_url
+                 *     - `{"tagNames": ["launch", "q3"], "tagsMatch": "all"}` — URLs tagged both launch and q3
                  *     - `{"createdAfter": "2024-01-01", "createdBefore": "2024-12-31", "status": "ACTIVE"}` — Active URLs from 2024
                  */
                 filter?: string | null;
@@ -7280,6 +7977,385 @@ export interface operations {
             };
         };
     };
+    bulkTagUrls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkTagUrlsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkUrlOperationResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagListResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tag id (MongoDB ObjectId), as returned by GET /tags. */
+                tag_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagDeleteResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tag id (MongoDB ObjectId), as returned by GET /tags. */
+                tag_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     claimUrls: {
         parameters: {
             query?: never;
@@ -7501,6 +8577,7 @@ export interface operations {
                  *     - `referrer` — Filter by referrer URL (e.g., https://google.com, https://twitter.com)
                  *     - `short_code` — Filter by URL alias (e.g., mylink, promo2024)
                  *     - `url_id` — Filter by URL id (MongoDB ObjectId); ids you do not own match nothing
+                 *     - `tag` / `tag_id` — Filter by link tag (name or id); clicks on your links carrying any listed tag
                  *     - `utm_source` / `utm_medium` / `utm_campaign` — Filter by campaign tags; `(none)` matches untagged clicks
                  *
                  *     **Value format:** Array of strings for each dimension.
@@ -7618,6 +8695,10 @@ export interface operations {
                  *     For statistics on a single link, prefer `GET /api/v1/stats/links/{url_id}`.
                  */
                 url_id?: string | null;
+                /** @description Comma-separated tag names. Scopes the aggregate to clicks on your links carrying at least one of them (resolved to link ids at query time, so a tag added today covers the link's whole click history). Filter only: `tag` is not a `group_by` dimension. See also `tag_id`. */
+                tag?: string | null;
+                /** @description Comma-separated tag ids (from `GET /api/v1/tags`). Same scope as `tag`, by id. Filter only. */
+                tag_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -8144,6 +9225,7 @@ export interface operations {
                  *     - `referrer` — Filter by referrer URL (e.g., https://google.com, https://twitter.com)
                  *     - `short_code` — Filter by URL alias (e.g., mylink, promo2024)
                  *     - `url_id` — Filter by URL id (MongoDB ObjectId); ids you do not own match nothing
+                 *     - `tag` / `tag_id` — Filter by link tag (name or id); clicks on your links carrying any listed tag
                  *     - `utm_source` / `utm_medium` / `utm_campaign` — Filter by campaign tags; `(none)` matches untagged clicks
                  *
                  *     **Value format:** Array of strings for each dimension.
@@ -8261,6 +9343,10 @@ export interface operations {
                  *     For statistics on a single link, prefer `GET /api/v1/stats/links/{url_id}`.
                  */
                 url_id?: string | null;
+                /** @description Comma-separated tag names. Scopes the aggregate to clicks on your links carrying at least one of them (resolved to link ids at query time, so a tag added today covers the link's whole click history). Filter only: `tag` is not a `group_by` dimension. See also `tag_id`. */
+                tag?: string | null;
+                /** @description Comma-separated tag ids (from `GET /api/v1/tags`). Same scope as `tag`, by id. Filter only. */
+                tag_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -9501,6 +10587,238 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetadataResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    expandUrl: {
+        parameters: {
+            query: {
+                /** @description Short or redirecting URL to follow, http or https. */
+                url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpandResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getDomainIntel: {
+        parameters: {
+            query: {
+                /** @description Hostname to look up (no scheme or path). */
+                host: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainIntelResponse"];
+                };
+            };
+            /** @description Bad Request — invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or scope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteMyAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionResponse"];
                 };
             };
             /** @description Bad Request — invalid parameters */

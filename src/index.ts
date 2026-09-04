@@ -1,5 +1,5 @@
 export { Spoo, type SpooOptions, type QueryParams } from "./client.js";
-export { asUrlId, type UrlId } from "./core/ids.js";
+export { asUrlId, asTagId, type UrlId, type TagId } from "./core/ids.js";
 export {
   SpooError,
   APIError,
@@ -45,7 +45,18 @@ export {
   type ClaimLinksResult,
   type BulkResult,
   type BulkResultRow,
+  type BulkTagChanges,
 } from "./resources/links.js";
+export {
+  Tags,
+  type Tag,
+  type TagRef,
+  type TagColor,
+  type TagIcon,
+  type CreateTagParams,
+  type UpdateTagParams,
+  type DeleteTagResult,
+} from "./resources/tags.js";
 export {
   Stats,
   type StatsParams,

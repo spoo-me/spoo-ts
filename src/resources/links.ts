@@ -2,7 +2,8 @@ import type { components } from "../generated/schema.js";
 import type { Transport, RequestOptions } from "../core/http.js";
 import { Page } from "../core/page.js";
 import { fromWire, toWire, type TimestampInput } from "../core/timestamps.js";
-import { asUrlId, type UrlId } from "../core/ids.js";
+import { asUrlId, type TagId, type UrlId } from "../core/ids.js";
+import { brandTagRef, type TagRef } from "./tags.js";
 
 type Schemas = components["schemas"];
 
@@ -10,9 +11,10 @@ type Schemas = components["schemas"];
 export interface Link
   extends Omit<
     Schemas["UrlListItem"],
-    "id" | "created_at" | "last_click" | "expire_after"
+    "id" | "tags" | "created_at" | "last_click" | "expire_after"
   > {
   id: UrlId;
+  tags?: TagRef[];
   /** Derived client-side from alias + domain; the list payload does not carry it. */
   short_url?: string;
   created_at?: Date | null | undefined;
@@ -21,8 +23,10 @@ export interface Link
 }
 
 /** A freshly created link, timestamps parsed to Date. */
-export interface CreatedLink extends Omit<Schemas["UrlResponse"], "id" | "created_at"> {
+export interface CreatedLink
+  extends Omit<Schemas["UrlResponse"], "id" | "tags" | "created_at"> {
   id: UrlId;
+  tags?: TagRef[];
   created_at: Date;
 }
 
@@ -47,9 +51,11 @@ export interface ClaimLinksResult extends Omit<Schemas["ClaimUrlsResponse"], "re
 }
 
 export interface CreateLinkParams
-  extends Omit<Schemas["CreateUrlRequest"], "expire_after" | "alias_type"> {
+  extends Omit<Schemas["CreateUrlRequest"], "expire_after" | "alias_type" | "tag_ids"> {
   /** Expiry as Date, ISO 8601 string, or unix epoch seconds. */
   expire_after?: TimestampInput | null;
+  /** Ids of your tags, at most 10. */
+  tag_ids?: TagId[] | null;
   /**
    * Optional here even though codegen marks it required: the API defaults it
    * to "alphanumeric" (openapi-typescript treats defaulted fields as
@@ -59,8 +65,10 @@ export interface CreateLinkParams
 }
 
 export interface UpdateLinkParams
-  extends Omit<Schemas["UpdateUrlRequest"], "expire_after"> {
+  extends Omit<Schemas["UpdateUrlRequest"], "expire_after" | "tag_ids"> {
   expire_after?: TimestampInput | null;
+  /** Replaces the stored list; `[]` or `null` clears it. */
+  tag_ids?: TagId[] | null;
 }
 
 export interface ListLinksParams {
@@ -76,9 +84,20 @@ export interface ListLinksParams {
     passwordSet?: boolean;
     maxClicksSet?: boolean;
     search?: string;
+    /** Only links carrying these tags, by id. */
+    tagIds?: TagId[];
+    /** Only links carrying these tags, by name; unknown names match nothing. */
+    tagNames?: string[];
+    /** How several tags combine. Defaults to "any". */
+    tagsMatch?: "any" | "all";
   };
   domain?: string;
 }
+
+/** Tag ids to add to and remove from every link in a bulk call. */
+export type BulkTagChanges =
+  | { add: TagId[]; remove?: TagId[] }
+  | { add?: TagId[]; remove: TagId[] };
 
 export interface ClaimItem {
   urlId: UrlId;
@@ -99,10 +118,12 @@ export interface BulkResult
 
 function parseListItem(item: Schemas["UrlListItem"], baseUrl: string): Link {
   const origin = item.domain != null ? `https://${item.domain}` : baseUrl;
+  const { tags, ...rest } = item;
   return {
-    ...item,
+    ...rest,
     id: asUrlId(item.id),
     ...(item.alias != null ? { short_url: `${origin}/${item.alias}` } : {}),
+    ...(tags !== undefined ? { tags: tags.map(brandTagRef) } : {}),
     created_at: item.created_at != null ? fromWire(item.created_at) : item.created_at,
     last_click: item.last_click != null ? fromWire(item.last_click) : item.last_click,
     expire_after:
@@ -137,7 +158,13 @@ export class Links {
       { method: "POST", path: "/api/v1/shorten", body },
       opts,
     );
-    return { ...raw, id: asUrlId(raw.id), created_at: fromWire(raw.created_at) };
+    const { tags, ...rest } = raw;
+    return {
+      ...rest,
+      id: asUrlId(raw.id),
+      ...(tags !== undefined ? { tags: tags.map(brandTagRef) } : {}),
+      created_at: fromWire(raw.created_at),
+    };
   }
 
   /** Check whether an alias is free before trying to create it. */
@@ -336,6 +363,25 @@ export class LinksBulk {
   ): Promise<BulkResult> {
     return this.transport.request(
       { method: "POST", path: "/api/v1/urls/bulk/domain", body: { ids, domain } },
+      opts,
+    );
+  }
+
+  /**
+   * Add and remove tags (by tag id) on many links. Tags a link already
+   * carries are kept once; tags it does not carry are ignored on remove. An
+   * unknown tag id in `add` rejects the whole request before any link is
+   * touched. A link that would end up with more than 10 tags fails as
+   * `validation_error`.
+   */
+  async updateTags(
+    ids: UrlId[],
+    changes: BulkTagChanges,
+    opts?: RequestOptions,
+  ): Promise<BulkResult> {
+    const body: Schemas["BulkTagUrlsRequest"] = { ids, ...changes };
+    return this.transport.request(
+      { method: "POST", path: "/api/v1/urls/bulk/tags", body },
       opts,
     );
   }

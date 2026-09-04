@@ -6,6 +6,7 @@ import {
   type RequestOptions,
 } from "./core/http.js";
 import { Links } from "./resources/links.js";
+import { Tags } from "./resources/tags.js";
 import { Stats } from "./resources/stats.js";
 import { PublicLinks } from "./resources/public.js";
 import { Emoji } from "./resources/emoji.js";
@@ -49,6 +50,7 @@ export interface SpooOptions {
 
 export class Spoo {
   readonly links: Links;
+  readonly tags: Tags;
   readonly stats: Stats;
   /** Public, unauthenticated per-link endpoints (stats page, preview). */
   readonly public: PublicLinks;
@@ -86,6 +88,7 @@ export class Spoo {
     });
 
     this.links = new Links(this._transport, baseUrl);
+    this.tags = new Tags(this._transport);
     this.stats = new Stats(this._transport);
     this.public = new PublicLinks(this._transport);
     this.emoji = new Emoji(this._transport);

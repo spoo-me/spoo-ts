@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { Spoo, asUrlId } from "../src/index.js";
+import { Spoo, asTagId, asUrlId } from "../src/index.js";
 
 const BASE = "https://spoo.test";
 const server = setupServer();
@@ -77,6 +77,32 @@ test("omits every optional param that was not given", async () => {
   );
   await client().stats.get({ shortCode: ["mylink"] });
   expect([...url!.searchParams.keys()]).toEqual(["short_code"]);
+});
+
+test("tag slices ride as comma-separated params or inside the filters JSON", async () => {
+  const urls: URL[] = [];
+  server.use(
+    http.get(`${BASE}/api/v1/stats`, ({ request }) => {
+      urls.push(new URL(request.url));
+      return HttpResponse.json(STATS_BODY);
+    }),
+    http.get(`${BASE}/api/v1/export`, ({ request }) => {
+      urls.push(new URL(request.url));
+      return new HttpResponse(new Uint8Array([1]).buffer);
+    }),
+  );
+  await client().stats.get({ tag: ["launch", "q3"], tagId: [asTagId("0".repeat(24))] });
+  await client().stats.get({ filters: { tag: ["launch"], tag_id: ["0".repeat(24)] } });
+  await client().stats.export({ tag: ["launch"] }, "json");
+  expect(urls[0]!.searchParams.get("tag")).toBe("launch,q3");
+  expect(urls[0]!.searchParams.get("tag_id")).toBe("0".repeat(24));
+  expect([...urls[0]!.searchParams.keys()]).toEqual(["tag", "tag_id"]);
+  expect(urls[1]!.searchParams.get("filters")).toBe(
+    '{"tag":["launch"],"tag_id":["000000000000000000000000"]}',
+  );
+  expect(urls[1]!.searchParams.has("tag")).toBe(false);
+  expect(urls[2]!.pathname).toBe("/api/v1/export");
+  expect(urls[2]!.searchParams.get("tag")).toBe("launch");
 });
 
 test("getForLink hits the per-link path with shared params", async () => {
