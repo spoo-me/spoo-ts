@@ -1,7 +1,7 @@
 import type { components } from "../generated/schema.js";
 import type { Transport, RequestOptions } from "../core/http.js";
 import { toWire, type TimestampInput } from "../core/timestamps.js";
-import type { UrlId } from "../core/ids.js";
+import type { TagId, UrlId } from "../core/ids.js";
 
 type Schemas = components["schemas"];
 
@@ -91,6 +91,14 @@ export interface AggregateStatsParams extends StatsParams {
   shortCode?: string[];
   /** Link ids to slice to. Ids you do not own simply match nothing. */
   urlId?: UrlId[];
+  /**
+   * Tag names to slice to: clicks on your links carrying at least one of
+   * them, resolved at query time, so a tag added today covers the link's
+   * whole click history. Filter only, not a `groupBy` dimension.
+   */
+  tag?: string[];
+  /** Same slice as `tag`, by tag id. */
+  tagId?: TagId[];
 }
 
 function buildStatsQuery(
@@ -114,6 +122,8 @@ function buildStatsQuery(
     utm_campaign: params.utm_campaign?.join(","),
     short_code: params.shortCode?.join(","),
     url_id: params.urlId?.join(","),
+    tag: params.tag?.join(","),
+    tag_id: params.tagId?.join(","),
   };
 }
 
@@ -168,8 +178,9 @@ export class Stats {
 
   /**
    * Click analytics aggregated across every link you own, optionally sliced
-   * with `shortCode`/`urlId`. Needs the `stats:read`, `urls:read` or
-   * `admin:all` scope. Rate limits: 60/min, 5,000/day.
+   * with `shortCode`/`urlId`, or by tag with `tag`/`tagId`. Needs the
+   * `stats:read`, `urls:read` or `admin:all` scope. Rate limits: 60/min,
+   * 5,000/day.
    */
   async get(params: AggregateStatsParams = {}, opts?: RequestOptions): Promise<StatsResponse> {
     return this.transport.request(

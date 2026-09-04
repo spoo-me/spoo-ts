@@ -86,6 +86,34 @@ const result = await spoo.links.bulk.setStatus(ids, "INACTIVE");
 console.log(result.summary); // { total, succeeded, failed }
 ```
 
+## Tags
+
+Tags are labels you attach to links, at most 10 per link. Links point at
+tags by id, so renaming a tag shows up on every link at once.
+
+```ts
+const launch = await spoo.tags.create({ name: "launch", color: "violet", icon: "rocket" });
+
+await spoo.links.create({ long_url: "https://example.com/launch", tag_ids: [launch.id] });
+await spoo.links.update(id, { tag_ids: [launch.id] }); // replaces the list; [] or null clears it
+
+const tagged = await spoo.links.list({
+  filter: { tagNames: ["launch", "q3"], tagsMatch: "all" },
+});
+
+await spoo.links.bulk.updateTags(ids, { add: [launch.id], remove: [oldTag.id] });
+```
+
+Every link carries its `tags` (id, name, color, icon). `spoo.tags.list()`
+returns every tag with its link count, and `spoo.tags.delete(id)` removes the
+tag from every link that had it. `spoo.stats.get` and `spoo.stats.export`
+take `tag` (names) or `tagId` (ids) to slice clicks to tagged links; see
+[Analytics](#analytics).
+
+Tag ids are branded too, as `TagId`, so a tag name cannot be passed where an
+id belongs. Ids returned by the SDK carry the type; mark persisted plain
+strings with `asTagId`.
+
 ## Pagination
 
 Every list is a `Page`: use it directly, walk it by hand, or iterate items
@@ -105,6 +133,7 @@ const stats = await spoo.stats.get({
   startDate: new Date("2026-01-01"),
   groupBy: ["time", "country"],
   device: ["mobile"],
+  tag: ["launch"],
   timezone: "Asia/Kolkata",
 });
 
@@ -230,7 +259,7 @@ naming the endpoint so it gets a typed method.
 
 The SDK covers the third-party integration surface of the API: identity
 read (`auth.me`), Sign in with Spoo, and the full data plane, meaning
-shortening, link management, claims, bulk operations, analytics, file
+shortening, link management, tags, claims, bulk operations, analytics, file
 exports, public link reads and the emoji alias catalogue.
 
 Deliberately out of scope: API key management, service health, the contact
@@ -248,7 +277,9 @@ exist for backward compatibility, not for new integrations.
 | `links.update`, `links.setStatus` | `PATCH /api/v1/urls/{id}`, `PATCH /api/v1/urls/{id}/status` |
 | `links.delete`, `links.deleteByDomain` | `DELETE /api/v1/urls/{id}`, `DELETE /api/v1/urls?domain=` |
 | `links.claim` | `POST /api/v1/urls/claim` |
-| `links.bulk.delete`, `links.bulk.setStatus`, `links.bulk.setExpiry`, `links.bulk.setDomain` | `POST /api/v1/urls/bulk/*` |
+| `links.bulk.delete`, `links.bulk.setStatus`, `links.bulk.setExpiry`, `links.bulk.setDomain`, `links.bulk.updateTags` | `POST /api/v1/urls/bulk/*` |
+| `tags.list`, `tags.create` | `GET /api/v1/tags`, `POST /api/v1/tags` |
+| `tags.update`, `tags.delete` | `PATCH /api/v1/tags/{id}`, `DELETE /api/v1/tags/{id}` |
 | `stats.get`, `stats.getForLink` | `GET /api/v1/stats`, `GET /api/v1/stats/links/{id}` |
 | `stats.export`, `stats.exportForLink` | `GET /api/v1/export`, `GET /api/v1/export/links/{id}` |
 | `public.stats`, `public.statsWithPassword` | `GET or POST /api/v1/public/stats/{code}` |
