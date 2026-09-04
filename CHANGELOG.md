@@ -1,5 +1,22 @@
 # spoo.me
 
+## 0.11.0
+
+### Minor Changes
+
+- Link tags. `spoo.tags` lists, creates, updates and deletes the account's
+  tags, and every tag carries a name, one of nine colours and an icon from
+  the server's set. Tag ids are branded as `TagId`, the way link ids are
+  `UrlId`, so a name can never be passed where an id belongs.
+- `tag_ids` on `links.create` and `links.update` (a whole-list replace, `[]`
+  clears), and `tags: TagRef[]` on `Link` and `CreatedLink`.
+- `links.list` filters by `tagIds` or `tagNames` with `tagsMatch` set to
+  `"any"` or `"all"`.
+- `stats.get` and `stats.export` take `tag` (names) and `tagId` (ids). The
+  per-link calls do not, since the API does not accept them there.
+- `links.bulk.updateTags(ids, { add, remove })` retags up to 100 links in
+  one request and returns the same per-item result as the other bulk calls.
+
 ## 0.10.2
 
 ### Patch Changes
